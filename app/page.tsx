@@ -28,7 +28,9 @@ import {
   ChevronRight,
   Grid,
   List,
-  CalendarDays
+  CalendarDays,
+  CalendarCheck,
+  AlertTriangle
 } from 'lucide-react';
 
 interface Profesional {
@@ -42,7 +44,7 @@ interface Profesional {
   trabaja_festivos?: 'S' | 'N';
 }
 
-type TipoAtencion = 'V' | 'O' | 'G';
+type TipoAtencion = 'V' | 'O';
 
 interface TurnoHorario {
   idTemp: string;
@@ -99,10 +101,9 @@ const TIPOS_ATENCION: Array<{
   { codigo: 'O', nombre: 'Obligatorio', descripcion: 'Atención obligatoria', badgeClass: 'atencion-obligatorio' },
 ];
 
-// Helper para visualización histórica de tipo de atención
+// Helper para visualización de tipo de atención (solo Voluntario y Obligatorio)
 const obtenerConfigTipoAtencion = (tipo: string) => {
   if (tipo === 'O') return { codigo: 'O', nombre: 'Obligatorio', badgeClass: 'atencion-obligatorio' };
-  if (tipo === 'G') return { codigo: 'G', nombre: 'Giris', badgeClass: 'atencion-giris' };
   return { codigo: 'V', nombre: 'Voluntario', badgeClass: 'atencion-voluntario' };
 };
 
@@ -145,6 +146,32 @@ const MAPA_ORDEN_DIAS: Record<string, { orden: number; nombre: string }> = {
   VI: { orden: 5, nombre: 'Viernes' },
   SA: { orden: 6, nombre: 'Sábado' },
   DO: { orden: 7, nombre: 'Domingo' },
+};
+
+// Helper para obtener YYYY-MM-DD sin desfase UTC
+const formatYMD = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// Helper para determinar código de día ('LU' .. 'DO')
+const obtenerKeyDiaSemana = (fechaStr: string): 'LU' | 'MA' | 'MI' | 'JU' | 'VI' | 'SA' | 'DO' => {
+  if (!fechaStr) return 'LU';
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  const day = dt.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  const map: Record<number, 'LU' | 'MA' | 'MI' | 'JU' | 'VI' | 'SA' | 'DO'> = {
+    0: 'DO',
+    1: 'LU',
+    2: 'MA',
+    3: 'MI',
+    4: 'JU',
+    5: 'VI',
+    6: 'SA',
+  };
+  return map[day] || 'LU';
 };
 
 export default function HorariosPage() {
@@ -217,6 +244,17 @@ export default function HorariosPage() {
   } | null>(null);
   const [actualizandoFestivos, setActualizandoFestivos] = useState(false);
 
+  // Festivos Nacionales cargados desde Oracle DB (tkr_festivos id_pais = 1)
+  const [festivosNacionales, setFestivosNacionales] = useState<Array<{ fecha: string; nombre: string }>>([]);
+  // Decisión si el profesional labora festivos en el rango con fecha final ('S' | 'N')
+  const [trabajaFestivosRango, setTrabajaFestivosRango] = useState<'S' | 'N'>('N');
+  // Modal de advertencia para rango con festivos cuando usuario indica que NO trabajará festivos
+  const [modalAdvertenciaFestivosRango, setModalAdvertenciaFestivosRango] = useState<{
+    festivos: Array<{ fecha: string; nombre: string; esDomingo: boolean }>;
+    fechaInicial: string;
+    fechaFinal: string;
+  } | null>(null);
+
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [guardandoFranjas, setGuardandoFranjas] = useState(false);
@@ -229,6 +267,55 @@ export default function HorariosPage() {
   const [fechaFinal, setFechaFinal] = useState<string>('');
   const [esIndefinido, setEsIndefinido] = useState<boolean>(true);
   const [modoReemplazo, setModoReemplazo] = useState<number>(1); // 1 = Reemplaza todo, 0 = Adiciona
+
+  // Mapa de Festivos Nacionales por Fecha (YYYY-MM-DD -> Nombre)
+  const mapaFestivos = useMemo(() => {
+    const m = new Map<string, string>();
+    festivosNacionales.forEach((f) => m.set(f.fecha, f.nombre));
+    return m;
+  }, [festivosNacionales]);
+
+  // Determinar si una fecha dada es festivo (Domingo o Festivo Nacional en tkr_festivos id_pais = 1)
+  const esFechaFestivo = (fechaStr: string) => {
+    const diaKey = obtenerKeyDiaSemana(fechaStr);
+    const esDomingo = diaKey === 'DO';
+    const nombreFestivoNac = mapaFestivos.get(fechaStr);
+    const esFestivo = esDomingo || Boolean(nombreFestivoNac);
+    const nombreFestivo = nombreFestivoNac || (esDomingo ? 'Domingo' : '');
+    return {
+      esFestivo,
+      esDomingo,
+      nombreFestivo,
+    };
+  };
+
+  // Días festivos dentro del rango seleccionado cuando tiene fecha_final
+  const festivosEnRangoSeleccionado = useMemo(() => {
+    if (esIndefinido || !fechaFinal || fechaFinal < fechaInicial) return [];
+    const lista: Array<{ fecha: string; nombre: string; esDomingo: boolean }> = [];
+    try {
+      const [yI, mI, dI] = fechaInicial.split('-').map(Number);
+      const [yF, mF, dF] = fechaFinal.split('-').map(Number);
+      const d = new Date(yI, mI - 1, dI);
+      const dFin = new Date(yF, mF - 1, dF);
+
+      while (d <= dFin) {
+        const fStr = formatYMD(d);
+        const info = esFechaFestivo(fStr);
+        if (info.esFestivo) {
+          lista.push({
+            fecha: fStr,
+            nombre: info.nombreFestivo,
+            esDomingo: info.esDomingo,
+          });
+        }
+        d.setDate(d.getDate() + 1);
+      }
+    } catch (err) {
+      console.warn('Error calculando festivos en rango:', err);
+    }
+    return lista;
+  }, [esIndefinido, fechaInicial, fechaFinal, mapaFestivos, festivosNacionales]);
 
   // Rango de Fechas para Franjas de Atención
   const [fechaInicialFranjas, setFechaInicialFranjas] = useState<string>(fechaHoy);
@@ -325,10 +412,23 @@ export default function HorariosPage() {
     setTimeout(() => setToast(null), 7000);
   };
 
-  // Cargar lista de profesionales al iniciar
+  // Cargar lista de profesionales y festivos al iniciar
   useEffect(() => {
     cargarProfesionales();
+    cargarFestivos();
   }, []);
+
+  const cargarFestivos = async () => {
+    try {
+      const res = await fetch('/api/festivos');
+      const data = await res.json();
+      if (data && Array.isArray(data.festivos)) {
+        setFestivosNacionales(data.festivos);
+      }
+    } catch (err) {
+      console.warn('Error al cargar festivos nacionales:', err);
+    }
+  };
 
   // Cerrar dropdown al hacer clic afuera
   useEffect(() => {
@@ -376,6 +476,7 @@ export default function HorariosPage() {
   // Cargar agenda y franjas al seleccionar un profesional
   const seleccionarProfesional = async (prof: Profesional) => {
     setProfesionalSeleccionado(prof);
+    setTrabajaFestivosRango(prof.trabaja_festivos === 'S' ? 'S' : 'N');
     setVigenciaEnEdicion(null);
     setVigenciaFranjasEnEdicion(null);
     setDropdownAbierto(false);
@@ -499,8 +600,14 @@ export default function HorariosPage() {
 
   // Manejadores de Días y Turnos
   const toggleDia = (diaKey: string) => {
-    if (diaKey === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N') {
-      notificar('error', 'El profesional no tiene habilitado laborar domingos ni festivos.');
+    const domingoBloqueado =
+      diaKey === 'DO' &&
+      (esIndefinido || !fechaFinal
+        ? profesionalSeleccionado?.trabaja_festivos === 'N'
+        : trabajaFestivosRango === 'N');
+
+    if (domingoBloqueado) {
+      notificar('error', 'El profesional tiene deshabilitado laborar domingos y festivos en esta vigencia.');
       return;
     }
 
@@ -517,8 +624,14 @@ export default function HorariosPage() {
   };
 
   const agregarTurno = (diaKey: string) => {
-    if (diaKey === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N') {
-      notificar('error', 'No se pueden agregar horarios en domingo para un profesional que no trabaja festivos.');
+    const domingoBloqueado =
+      diaKey === 'DO' &&
+      (esIndefinido || !fechaFinal
+        ? profesionalSeleccionado?.trabaja_festivos === 'N'
+        : trabajaFestivosRango === 'N');
+
+    if (domingoBloqueado) {
+      notificar('error', 'No se pueden agregar horarios en domingo para un profesional que no labora festivos en esta vigencia.');
       return;
     }
 
@@ -681,6 +794,44 @@ export default function HorariosPage() {
       return;
     }
 
+    // Intercepción de Festivos: Si el horario tiene fecha final y el usuario indicó que NO trabajará festivos
+    if (!esIndefinido && fechaFinal && trabajaFestivosRango === 'N') {
+      if (festivosEnRangoSeleccionado.length > 0) {
+        setModalAdvertenciaFestivosRango({
+          festivos: festivosEnRangoSeleccionado,
+          fechaInicial,
+          fechaFinal,
+        });
+        return;
+      }
+    }
+
+    await persistirHorarios(listaHorariosAplanada);
+  };
+
+  // Ejecución física del guardado de horarios en Oracle DB
+  const persistirHorarios = async (horariosAplanados?: any[]) => {
+    if (!profesionalSeleccionado) return;
+
+    let lista = horariosAplanados;
+    if (!lista || lista.length === 0) {
+      lista = [];
+      for (const dia of DIAS_SEMANA) {
+        const conf = diasConfig[dia.key];
+        if (conf.activo && conf.turnos.length > 0) {
+          for (const t of conf.turnos) {
+            lista.push({
+              dia_semana: dia.key,
+              hora_desde: t.hora_desde,
+              hora_hasta: t.hora_hasta,
+              fecha_inicial: fechaInicial,
+              fecha_final: esIndefinido || !fechaFinal ? null : fechaFinal,
+            });
+          }
+        }
+      }
+    }
+
     setGuardando(true);
     try {
       const payload = {
@@ -689,7 +840,7 @@ export default function HorariosPage() {
         reemplazar_vigencia: vigenciaEnEdicion ? 1 : 0,
         fecha_inicial_origen: vigenciaEnEdicion ? vigenciaEnEdicion.fecha_inicial : null,
         fecha_final_origen: vigenciaEnEdicion ? vigenciaEnEdicion.fecha_final : null,
-        horarios: listaHorariosAplanada,
+        horarios: lista,
       };
 
       const res = await fetch('/api/horarios', {
@@ -705,7 +856,7 @@ export default function HorariosPage() {
           : '¡Horarios para el rango guardados exitosamente en Oracle DB!';
         notificar('success', msjExito);
         setVigenciaEnEdicion(null);
-        seleccionarProfesional(profesionalSeleccionado);
+        await seleccionarProfesional(profesionalSeleccionado);
       } else {
         notificar('error', data.mensaje || 'Error al persistir horarios.');
       }
@@ -715,6 +866,61 @@ export default function HorariosPage() {
     } finally {
       setGuardando(false);
     }
+  };
+
+  // Confirmar y registrar ausencias para los días festivos detectados en el rango
+  const confirmarGuardadoConAusenciasFestivos = async () => {
+    if (!modalAdvertenciaFestivosRango || !profesionalSeleccionado) return;
+    setGuardando(true);
+    try {
+      let ausenciasCreadas = 0;
+      for (const festivo of modalAdvertenciaFestivosRango.festivos) {
+        const yaCubierto = ausencias.some(
+          (a) => festivo.fecha >= a.fecha_inicial && festivo.fecha <= a.fecha_final
+        );
+        if (!yaCubierto) {
+          try {
+            await fetch('/api/ausencias', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id_usuario: profesionalSeleccionado.id_usuario,
+                fecha_inicial: festivo.fecha,
+                fecha_final: festivo.fecha,
+                motivo: `Festivo no laborable: ${festivo.nombre}`,
+              }),
+            });
+            ausenciasCreadas++;
+          } catch (e) {
+            console.warn(`Error al registrar ausencia para festivo ${festivo.fecha}:`, e);
+          }
+        }
+      }
+
+      await persistirHorarios();
+      setModalAdvertenciaFestivosRango(null);
+      await seleccionarProfesional(profesionalSeleccionado);
+      notificar(
+        'success',
+        `Horarios guardados exitosamente. Se crearon ${ausenciasCreadas} bloqueo(s) por días festivos en la tabla de ausencias.`
+      );
+    } catch (err: any) {
+      console.error(err);
+      notificar('error', 'Ocurrió un error al procesar las ausencias o guardar los horarios.');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  // El usuario decide en el modal cambiar a que SÍ trabajará festivos
+  const cambiarASiTrabajaFestivosYGuardar = async () => {
+    setTrabajaFestivosRango('S');
+    setModalAdvertenciaFestivosRango(null);
+    await persistirHorarios();
+    if (profesionalSeleccionado) {
+      await seleccionarProfesional(profesionalSeleccionado);
+    }
+    notificar('success', 'Horarios guardados. El profesional laborará festivos si tiene turnos configurados.');
   };
 
   // Registrar nueva ausencia
@@ -871,10 +1077,21 @@ export default function HorariosPage() {
       mapaDiasRegistrados.set(g.diaKey, g.turnos);
     });
 
+    const tieneDomingo = periodo.diasAgrupados.some((g) => g.diaKey === 'DO' && g.turnos.length > 0);
+    if (periodo.fecha_final) {
+      setTrabajaFestivosRango(tieneDomingo ? 'S' : (profesionalSeleccionado?.trabaja_festivos === 'S' ? 'S' : 'N'));
+    }
+
     const nuevaConfigDias: Record<string, DiaConfig> = {};
     DIAS_SEMANA.forEach((dia) => {
-      // Si el profesional no trabaja festivos, bloquear Domingo
-      if (dia.key === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N') {
+      // Si el profesional no trabaja festivos en esta vigencia, bloquear Domingo
+      const bloquearDomingo =
+        dia.key === 'DO' &&
+        (periodo.fecha_final
+          ? !tieneDomingo && profesionalSeleccionado?.trabaja_festivos === 'N'
+          : profesionalSeleccionado?.trabaja_festivos === 'N');
+
+      if (bloquearDomingo) {
         nuevaConfigDias[dia.key] = {
           activo: false,
           turnos: [],
@@ -1411,36 +1628,11 @@ export default function HorariosPage() {
   // LÓGICA Y HELPERS DEL CALENDARIO INTEGRADO (REGLA DE PREVALENCIA)
   // =========================================================================
 
-  // Helper para obtener YYYY-MM-DD sin desfase UTC
-  const formatYMD = (date: Date): string => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
-
-  // Helper para determinar código de día ('LU' .. 'DO')
-  const obtenerKeyDiaSemana = (fechaStr: string): 'LU' | 'MA' | 'MI' | 'JU' | 'VI' | 'SA' | 'DO' => {
-    const [y, m, d] = fechaStr.split('-').map(Number);
-    const dt = new Date(y, m - 1, d);
-    const day = dt.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-    const map: Record<number, 'LU' | 'MA' | 'MI' | 'JU' | 'VI' | 'SA' | 'DO'> = {
-      0: 'DO',
-      1: 'LU',
-      2: 'MA',
-      3: 'MI',
-      4: 'JU',
-      5: 'VI',
-      6: 'SA',
-    };
-    return map[day];
-  };
-
-  // Resolución diaria con regla estricta de prevalencia y filtros de visualización:
+  // Resolución diaria con regla estricta de prevalencia, festivos y filtros de visualización:
   // "prima es la que en el rango tenga fecha_final de lo contrario aplica lo que no tenga fecha_final"
   const resolverDiaCalendario = (fechaStr: string) => {
     const diaKey = obtenerKeyDiaSemana(fechaStr);
-    const noLaboraFestivo = diaKey === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N';
+    const infoFestivo = esFechaFestivo(fechaStr);
 
     // 1. Ausencias (filtradas por filtroVerAusencias)
     const tieneAusenciaReal = ausencias.some(
@@ -1450,7 +1642,7 @@ export default function HorariosPage() {
 
     // 2. Horario del profesional (Encima, filtrado por filtroVerHorario)
     let turnosHorario: HorarioRegistrado[] = [];
-    if (filtroVerHorario && !noLaboraFestivo) {
+    if (filtroVerHorario) {
       // Prioridad 1: Vigencia con fecha_final (Horario Personalizado)
       const turnosPersonalizados = horariosRegistrados.filter(
         (h) =>
@@ -1464,15 +1656,24 @@ export default function HorariosPage() {
         turnosHorario = turnosPersonalizados;
       } else {
         // Prioridad 2: Vigencia sin fecha_final (Horario Base)
-        turnosHorario = horariosRegistrados.filter(
-          (h) =>
-            h.fecha_final === null &&
-            fechaStr >= h.fecha_inicial &&
-            h.dia_semana === diaKey
-        );
+        // Si el profesional no labora festivos en general y es domingo, no aplica horario base
+        const noLaboraBaseFestivo = diaKey === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N';
+        if (!noLaboraBaseFestivo) {
+          turnosHorario = horariosRegistrados.filter(
+            (h) =>
+              h.fecha_final === null &&
+              fechaStr >= h.fecha_inicial &&
+              h.dia_semana === diaKey
+          );
+        }
       }
       turnosHorario.sort((a, b) => a.hora_desde.localeCompare(b.hora_desde));
     }
+
+    const noLaboraFestivo =
+      diaKey === 'DO' &&
+      profesionalSeleccionado?.trabaja_festivos === 'N' &&
+      turnosHorario.length === 0;
 
     // 3. Franjas de atención (filtradas por filtroVerVoluntario y filtroVerObligatorio)
     let franjasDia: FranjaRegistrada[] = [];
@@ -1516,6 +1717,9 @@ export default function HorariosPage() {
       noLaboraFestivo,
       turnosHorario,
       franjasDia,
+      esFestivo: infoFestivo.esFestivo,
+      esDomingo: infoFestivo.esDomingo,
+      nombreFestivo: infoFestivo.nombreFestivo,
     };
   };
 
@@ -2289,6 +2493,87 @@ export default function HorariosPage() {
                 .
               </span>
             </div>
+
+            {/* Pregunta si trabajará festivos en este rango específico con fecha_final */}
+            {!esIndefinido && Boolean(fechaFinal) && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  padding: '14px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '14px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, minWidth: '280px' }}>
+                  <CalendarCheck size={20} color="var(--accent-cyan)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-highlight)' }}>
+                      ¿Trabajará domingos y días festivos en este rango de vigencia?
+                    </div>
+                    <div style={{ fontSize: '12px', marginTop: '4px', lineHeight: 1.4 }}>
+                      {festivosEnRangoSeleccionado.length > 0 ? (
+                        <div>
+                          <span style={{ color: '#F59E0B', fontWeight: 700 }}>
+                            Hay {festivosEnRangoSeleccionado.length} día(s) festivo(s) y domingo(s) dentro del rango seleccionado:
+                          </span>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                            {festivosEnRangoSeleccionado.map((f, idx) => (
+                              <span key={idx} className="badge-festivo-pill" title={`${f.fecha} - ${f.nombre}`}>
+                                {f.fecha} ({f.nombre})
+                              </span>
+                            ))}
+                          </div>
+                          {trabajaFestivosRango === 'N' && (
+                            <span style={{ display: 'block', color: 'var(--color-danger)', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>
+                              • Al guardar con &quot;NO trabajará festivos&quot;, se crearán estos {festivosEnRangoSeleccionado.length} día(s) en la tabla de ausencias para bloquear la agenda.
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          No se detectaron festivos nacionales ni domingos en este rango de fechas.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrabajaFestivosRango('S');
+                      notificar('success', 'Ha seleccionado que SÍ laborará domingos y festivos en este rango.');
+                    }}
+                    className={`btn-toggle-festivos-option ${trabajaFestivosRango === 'S' ? 'active-si' : ''}`}
+                    title="Habilita turnos en domingo para esta vigencia"
+                  >
+                    ✓ SÍ trabajará festivos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTrabajaFestivosRango('N');
+                      setDiasConfig((prev) => ({
+                        ...prev,
+                        DO: { ...prev.DO, activo: false },
+                      }));
+                      notificar('success', 'Ha seleccionado que NO laborará festivos en este rango. Al guardar se crearán las ausencias para bloquear estos días.');
+                    }}
+                    className={`btn-toggle-festivos-option ${trabajaFestivosRango === 'N' ? 'active-no' : ''}`}
+                    title="No labora festivos; al guardar se crearán ausencias para los festivos detectados"
+                  >
+                    ✕ NO trabajará festivos
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* PASO 2: ESCOGER LOS HORARIOS PARA LOS DÍAS EN ESE RANGO */}
@@ -2306,7 +2591,11 @@ export default function HorariosPage() {
             <div className="week-grid">
               {DIAS_SEMANA.map((dia) => {
                 const conf = diasConfig[dia.key];
-                const esDomingoBloqueado = dia.key === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N';
+                const esDomingoBloqueado =
+                  dia.key === 'DO' &&
+                  (esIndefinido || !fechaFinal
+                    ? profesionalSeleccionado?.trabaja_festivos === 'N'
+                    : trabajaFestivosRango === 'N');
 
                 return (
                   <div
@@ -2360,7 +2649,11 @@ export default function HorariosPage() {
                         <div className="locked-day-banner">
                           <AlertCircle size={20} color="var(--color-danger)" />
                           <strong>Domingo Bloqueado</strong>
-                          <span>El profesional no labora festivos ni domingos según su configuración.</span>
+                          <span>
+                            {esIndefinido || !fechaFinal
+                              ? 'El profesional no labora festivos ni domingos según su perfil.'
+                              : 'No labora domingos ni festivos en este rango de vigencia.'}
+                          </span>
                         </div>
                       ) : !conf.activo || conf.turnos.length === 0 ? (
                         <div className="empty-day-state">
@@ -2838,7 +3131,7 @@ export default function HorariosPage() {
                 <span>Paso 2: Configurar Franjas Horarias y Tipo de Atención por Día</span>
               </div>
               <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                Cada franja debe tener un tipo de atención asignado (Voluntario, Obligatorio o Giris)
+                Cada franja debe tener un tipo de atención asignado (Voluntario u Obligatorio)
               </span>
             </div>
 
@@ -3299,6 +3592,11 @@ export default function HorariosPage() {
                 <span>Ausencia / Bloqueo</span>
               </label>
 
+              <div className="legend-filter-chip inactive" style={{ cursor: 'default' }} title="Días domingos y festivos nacionales coloreados distintivamente">
+                <span className="legend-dot festivo"></span>
+                <span>Domingos y Festivos</span>
+              </div>
+
               <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-muted)' }}>
                 ⭐ Regla: Prima la vigencia con fecha final; en su ausencia aplica el horario/franja base.
               </span>
@@ -3315,7 +3613,7 @@ export default function HorariosPage() {
                 <div>JUE</div>
                 <div>VIE</div>
                 <div>SÁB</div>
-                <div>DOM</div>
+                <div style={{ color: '#F43F5E' }}>DOM</div>
               </div>
 
               <div className="month-cells-grid">
@@ -3328,18 +3626,25 @@ export default function HorariosPage() {
                       key={i}
                       className={`month-day-cell ${!c.esMesActual ? 'other-month' : ''} ${
                         c.esHoy ? 'is-today' : ''
-                      } ${dataDia.tieneAusencia ? 'is-blocked' : ''}`}
+                      } ${dataDia.tieneAusencia ? 'is-blocked' : ''} ${
+                        dataDia.esFestivo ? 'is-holiday' : ''
+                      }`}
                       onClick={() => setDiaModalDetalle(c.fechaStr)}
-                      title={`Clic para ver detalle de ${c.fechaStr}`}
+                      title={`Clic para ver detalle de ${c.fechaStr}${dataDia.nombreFestivo ? ` (${dataDia.nombreFestivo})` : ''}`}
                     >
                       <div className="month-day-header-line">
                         <span className="month-day-number">{c.diaNumero}</span>
+                        {dataDia.esFestivo && (
+                          <span className="badge-festivo-pill" title={dataDia.nombreFestivo}>
+                            {dataDia.nombreFestivo || 'Festivo'}
+                          </span>
+                        )}
                         {dataDia.tieneAusencia && (
                           <span className="badge-absence-pill">
                             <CalendarOff size={10} /> Bloqueado
                           </span>
                         )}
-                        {!dataDia.tieneAusencia && dataDia.noLaboraFestivo && (
+                        {!dataDia.tieneAusencia && dataDia.noLaboraFestivo && !dataDia.esFestivo && (
                           <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>No festivos</span>
                         )}
                       </div>
@@ -3362,7 +3667,7 @@ export default function HorariosPage() {
                           {/* Franjas de Atención (Debajo, con color distintivo por tipo) */}
                           {dataDia.franjasDia.slice(0, 3).map((fr, idx) => {
                             const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                            const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : fr.tipo_atencion === 'G' ? 'giris' : 'voluntario';
+                            const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
                             return (
                               <div
                                 key={`fr_${idx}`}
@@ -3402,10 +3707,17 @@ export default function HorariosPage() {
                 const dataDia = resolverDiaCalendario(d.fechaStr);
 
                 return (
-                  <div key={i} className={`week-day-card ${d.esHoy ? 'is-today' : ''}`}>
+                  <div key={i} className={`week-day-card ${d.esHoy ? 'is-today' : ''} ${dataDia.esFestivo ? 'is-holiday' : ''}`}>
                     <div className="week-day-header">
                       <div>
-                        <div className="week-day-name">{d.nombreDia}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span className="week-day-name">{d.nombreDia}</span>
+                          {dataDia.esFestivo && (
+                            <span className="badge-festivo-pill" title={dataDia.nombreFestivo}>
+                              {dataDia.nombreFestivo || 'Festivo'}
+                            </span>
+                          )}
+                        </div>
                         <div className="week-day-date">{d.fechaStr}</div>
                       </div>
                       {d.esHoy && (
@@ -3460,7 +3772,7 @@ export default function HorariosPage() {
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 {dataDia.franjasDia.map((fr, idx) => {
                                   const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                                  const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : fr.tipo_atencion === 'G' ? 'giris' : 'voluntario';
+                                  const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
                                   return (
                                     <div key={`w_fr_${idx}`} className={`cal-event-franja ${claseTipo}`} style={{ padding: '6px 8px' }}>
                                       <div>
@@ -3497,11 +3809,18 @@ export default function HorariosPage() {
 
             return (
               <div className="calendar-day-view-wrap">
-                <div className="day-view-hero-card">
+                <div className={`day-view-hero-card ${dataDia.esFestivo ? 'is-holiday' : ''}`}>
                   <div>
-                    <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-highlight)' }}>
-                      {tituloPeriodo}
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-highlight)' }}>
+                        {tituloPeriodo}
+                      </h3>
+                      {dataDia.esFestivo && (
+                        <span className="badge-festivo-pill" style={{ fontSize: '11px', padding: '3px 8px' }}>
+                          {dataDia.nombreFestivo || 'Día Festivo / Domingo'}
+                        </span>
+                      )}
+                    </div>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                       {profesionalSeleccionado?.nombre_completo} • {dataDia.turnosHorario.length} turnos de horario • {dataDia.franjasDia.length} franjas de atención
                     </p>
@@ -3644,17 +3963,24 @@ export default function HorariosPage() {
                 const totalItems = dataDia.turnosHorario.length + dataDia.franjasDia.length;
 
                 return (
-                  <div key={i} className="agenda-day-item">
+                  <div key={i} className={`agenda-day-item ${dataDia.esFestivo ? 'is-holiday' : ''}`}>
                     <div className={`agenda-date-badge ${d.esHoy ? 'is-today' : ''}`}>
                       <div className="agenda-date-num">{d.diaNumero}</div>
                       <div className="agenda-date-day">{d.nombreMes} • {d.nombreDia.substring(0, 3)}</div>
                     </div>
 
                     <div className="agenda-events-col">
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-highlight)' }}>
-                          {d.nombreDia}, {d.fechaStr}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-highlight)' }}>
+                            {d.nombreDia}, {d.fechaStr}
+                          </span>
+                          {dataDia.esFestivo && (
+                            <span className="badge-festivo-pill" title={dataDia.nombreFestivo}>
+                              {dataDia.nombreFestivo || 'Festivo'}
+                            </span>
+                          )}
+                        </div>
                         {dataDia.tieneAusencia && (
                           <span className="badge-absence-pill">
                             <CalendarOff size={11} /> Bloqueado por Ausencia
@@ -3694,7 +4020,7 @@ export default function HorariosPage() {
                               </span>
                               {dataDia.franjasDia.map((fr, idx) => {
                                 const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                                const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : fr.tipo_atencion === 'G' ? 'giris' : 'voluntario';
+                                const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
                                 return (
                                   <span key={idx} className={`cal-event-franja ${claseTipo}`} style={{ display: 'inline-flex', padding: '3px 8px' }}>
                                     {formatearHora12(fr.hora_desde)} - {formatearHora12(fr.hora_hasta)} ({confTipo.nombre})
@@ -3721,7 +4047,14 @@ export default function HorariosPage() {
                 <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
                   <div className="modal-header-warning" style={{ background: 'rgba(0, 210, 255, 0.1)', borderColor: 'rgba(0, 210, 255, 0.3)' }}>
                     <Calendar size={22} color="var(--accent-cyan)" />
-                    <h3 style={{ color: 'var(--accent-cyan)' }}>Detalle de Agenda: {diaModalDetalle}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ color: 'var(--accent-cyan)' }}>Detalle de Agenda: {diaModalDetalle}</h3>
+                      {dataDia.esFestivo && (
+                        <span className="badge-festivo-pill">
+                          {dataDia.nombreFestivo || 'Festivo'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="modal-body-text">
@@ -3773,7 +4106,7 @@ export default function HorariosPage() {
                             ) : (
                               dataDia.franjasDia.map((fr, idx) => {
                                 const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                                const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : fr.tipo_atencion === 'G' ? 'giris' : 'voluntario';
+                                const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
                                 return (
                                   <div key={idx} className={`cal-event-franja ${claseTipo}`} style={{ padding: '6px 10px', fontSize: '12px', marginBottom: '4px' }}>
                                     <span>{formatearHora12(fr.hora_desde)} a {formatearHora12(fr.hora_hasta)}</span>
@@ -4016,6 +4349,112 @@ export default function HorariosPage() {
               >
                 <Trash2 size={15} />
                 {actualizandoFestivos ? 'Borrando domingos...' : 'Confirmar y Borrar Horarios de Domingo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal In-App de Advertencia: Rango con Festivos cuando usuario indicó que NO trabajará festivos */}
+      {modalAdvertenciaFestivosRango && (
+        <div className="modal-backdrop" onClick={() => setModalAdvertenciaFestivosRango(null)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header-warning" style={{ background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+              <AlertTriangle size={24} color="#F59E0B" />
+              <h3 style={{ color: '#F59E0B' }}>
+                Advertencia: {modalAdvertenciaFestivosRango.festivos.length} Día(s) Festivo(s) en el Rango
+              </h3>
+            </div>
+
+            <p className="modal-body-text">
+              Para el profesional{' '}
+              <strong className="modal-highlight-name">
+                {profesionalSeleccionado?.nombre_completo}
+              </strong>
+              , en el rango del{' '}
+              <strong>{modalAdvertenciaFestivosRango.fechaInicial}</strong> al{' '}
+              <strong>{modalAdvertenciaFestivosRango.fechaFinal}</strong>, ha indicado que{' '}
+              <strong style={{ color: 'var(--color-danger)' }}>NO trabajará los días festivos</strong>.
+            </p>
+
+            <div
+              style={{
+                margin: '12px 0',
+                maxHeight: '170px',
+                overflowY: 'auto',
+                background: 'rgba(0, 0, 0, 0.2)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px 12px',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                DÍAS FESTIVOS DETECTADOS (DOMINGOS Y FESTIVOS NACIONALES):
+              </div>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {modalAdvertenciaFestivosRango.festivos.map((f, i) => (
+                  <li
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '12px',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      background: 'rgba(255, 255, 255, 0.04)',
+                    }}
+                  >
+                    <span>
+                      <strong style={{ color: 'var(--accent-cyan)' }}>{f.fecha}</strong> ({obtenerKeyDiaSemana(f.fecha)})
+                    </span>
+                    <span className="badge-festivo-pill">{f.nombre}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="modal-highlight-box" style={{ borderColor: 'rgba(245, 158, 11, 0.5)' }}>
+              <div className="modal-highlight-title" style={{ color: '#F59E0B' }}>
+                Creación Automática en Tabla de Ausencias
+              </div>
+              <div className="modal-highlight-desc">
+                Si confirma, se creará automáticamente un registro de ausencia para cada uno de estos{' '}
+                <strong>{modalAdvertenciaFestivosRango.festivos.length} días</strong> en la tabla de ausencias{' '}
+                (<code>tkr_ausencias_profesional</code>) para que queden bloqueados en la agenda.
+              </div>
+            </div>
+
+            <div className="modal-actions" style={{ flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn-modal-cancel"
+                onClick={() => setModalAdvertenciaFestivosRango(null)}
+                disabled={guardando}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn-toggle-festivos-option active-si"
+                onClick={cambiarASiTrabajaFestivosYGuardar}
+                disabled={guardando}
+                style={{ fontSize: '12px', padding: '8px 14px' }}
+                title="Cambiar a que SÍ trabajará festivos y guardar sin crear ausencias"
+              >
+                Cambiar a SÍ Trabajará Festivos
+              </button>
+
+              <button
+                type="button"
+                className="btn-modal-confirm-warning"
+                onClick={confirmarGuardadoConAusenciasFestivos}
+                disabled={guardando}
+                style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', border: 'none' }}
+              >
+                <CalendarOff size={15} />
+                {guardando ? 'Creando ausencias y guardando...' : 'Confirmar y Crear Ausencias'}
               </button>
             </div>
           </div>

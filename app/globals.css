@@ -3607,4 +3607,123 @@ body {
   gap: 8px;
 }
 
+/* ==================== ESTILOS PARA DÍAS FESTIVOS Y DOMINGOS EN CALENDARIO ==================== */
+.month-days-header-row > div:last-child {
+  color: #F43F5E;
+}
+
+[data-theme="light"] .month-days-header-row > div:last-child {
+  color: #E11D48;
+}
+
+.month-day-cell.is-holiday {
+  background: rgba(244, 63, 94, 0.04);
+}
+
+.month-day-cell.is-holiday:hover {
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.month-day-cell.is-holiday .month-day-number {
+  color: #FB7185;
+}
+
+[data-theme="light"] .month-day-cell.is-holiday {
+  background: #FFF1F2;
+}
+
+[data-theme="light"] .month-day-cell.is-holiday:hover {
+  background: #FFE4E6;
+}
+
+[data-theme="light"] .month-day-cell.is-holiday .month-day-number {
+  color: #E11D48;
+}
+
+.week-day-card.is-holiday {
+  border-color: rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.03);
+}
+
+[data-theme="light"] .week-day-card.is-holiday {
+  background: #FFF8F8;
+  border-color: #FECDD3;
+}
+
+.badge-festivo-pill {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: rgba(244, 63, 94, 0.14);
+  color: #FDA4AF;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="light"] .badge-festivo-pill {
+  background: #FFE4E6;
+  color: #BE123C;
+  border-color: #FDA4AF;
+}
+
+.legend-dot.festivo {
+  background: #F43F5E;
+  box-shadow: 0 0 6px rgba(244, 63, 94, 0.5);
+}
+
+/* Botones para seleccionar Si / No trabajará festivos en el rango */
+.btn-toggle-festivos-option {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-toggle-festivos-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.btn-toggle-festivos-option.active-si {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.btn-toggle-festivos-option.active-no {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+[data-theme="light"] .btn-toggle-festivos-option {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+
+[data-theme="light"] .btn-toggle-festivos-option.active-si {
+  background: #D1FAE5;
+  border-color: #10B981;
+  color: #065F46;
+}
+
+[data-theme="light"] .btn-toggle-festivos-option.active-no {
+  background: #FEE2E2;
+  border-color: #EF4444;
+  color: #991B1B;
+}
+
 

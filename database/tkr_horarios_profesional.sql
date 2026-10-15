@@ -26,6 +26,7 @@ CREATE TABLE tkr_horarios_profesional (
     hora_hasta              VARCHAR2(5)     NOT NULL,
     fecha_inicial           DATE            NOT NULL,
     fecha_final             DATE,
+    tipo_atencion           VARCHAR2(1)     DEFAULT 'V' NOT NULL,
     activo                  NUMBER(1)       DEFAULT 1 NOT NULL,
     fecha_creacion          DATE            DEFAULT (SYSTIMESTAMP AT TIME ZONE 'America/Bogota') NOT NULL,
     id_usuario_creacion     NUMBER(12),
@@ -42,6 +43,9 @@ CREATE TABLE tkr_horarios_profesional (
     ),
     CONSTRAINT tkr_horarios_prof_fechas_ck CHECK (
         fecha_final IS NULL OR fecha_inicial <= fecha_final
+    ),
+    CONSTRAINT ck_tkr_hor_prof_tipo CHECK (
+        tipo_atencion IN ('V', 'O', 'G')
     )
 );
 /

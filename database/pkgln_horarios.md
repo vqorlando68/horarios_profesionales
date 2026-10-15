@@ -47,6 +47,7 @@ Recibe el payload JSON con el ID del profesional, las directivas de reemplazo y 
 3. **Validación de Cada Rango Horario (en memoria):**
    * Si `dia_semana` no pertenece a la lista canónica (`LU`, `MA`, `MI`, `JU`, `VI`, `SA`, `DO`), lanza error `-20002`.
    * Si `hora_desde >= hora_hasta`, lanza error `-20003`.
+   * Si viene informado `tipo_atencion` y no pertenece a ('V', 'O', 'G'), lanza error `-20012` (V: Voluntario, O: Obligatorio, G: Giris).
    * Si `dia_semana = 'DO'` y el usuario no trabaja festivos (`pkgca_tkr_usuarios.f_trabaja_festivos = 'N'`), lanza error `-20010`.
    * Si `fecha_inicial` viene nula o vacía, lanza error `-20004`.
    * Si el formato de `fecha_inicial` no es válido (YYYY-MM-DD), lanza error `-20005`.

@@ -185,9 +185,9 @@ AS
           INTO v_json_profesional
           FROM tkr_usuarios      u,
                tkr_roles_usuario ru
-         WHERE ru.id_usuario = u.id
-           AND ru.id_rol = 4
-           AND u.id = p_id_usuario;
+          WHERE ru.id_usuario = u.id
+            AND ru.id_rol = 4
+            AND u.id = p_id_usuario;
 
         -- B. Horarios registrados del profesional con su rango de vigencia
         SELECT COALESCE(
@@ -199,6 +199,7 @@ AS
                            'hora_hasta'    VALUE h.hora_hasta,
                            'fecha_inicial' VALUE TO_CHAR(h.fecha_inicial, 'YYYY-MM-DD'),
                            'fecha_final'   VALUE TO_CHAR(h.fecha_final, 'YYYY-MM-DD'),
+                           'tipo_atencion' VALUE NVL(h.tipo_atencion, 'V'),
                            'activo'        VALUE h.activo
                        )
                        ORDER BY CASE h.dia_semana

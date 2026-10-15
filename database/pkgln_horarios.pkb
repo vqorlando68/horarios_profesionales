@@ -138,6 +138,7 @@ AS
         v_dia_semana            VARCHAR2(10);
         v_hora_desde            VARCHAR2(10);
         v_hora_hasta            VARCHAR2(10);
+        v_tipo_atencion         VARCHAR2(10);
         v_fecha_inicial_str     VARCHAR2(30);
         v_fecha_final_str       VARCHAR2(30);
         v_fecha_inicial         DATE;

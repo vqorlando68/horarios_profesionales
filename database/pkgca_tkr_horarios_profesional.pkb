@@ -68,6 +68,7 @@ CREATE OR REPLACE PACKAGE BODY pkgca_tkr_horarios_profesional AS
                    hora_hasta,
                    fecha_inicial,
                    fecha_final,
+                   tipo_atencion,
                    activo,
                    fecha_creacion
               FROM tkr_horarios_profesional
@@ -92,6 +93,7 @@ CREATE OR REPLACE PACKAGE BODY pkgca_tkr_horarios_profesional AS
                    hora_hasta,
                    fecha_inicial,
                    fecha_final,
+                   tipo_atencion,
                    activo
               FROM tkr_horarios_profesional
              WHERE id_usuario = p_id_usuario

@@ -26,7 +26,7 @@ CREATE TABLE tkr_horarios_profesional (
     hora_hasta              VARCHAR2(5)     NOT NULL,
     fecha_inicial           DATE            NOT NULL,
     fecha_final             DATE,
-    tipo_atencion           VARCHAR2(1)     DEFAULT 'V' NOT NULL,
+    id_tipo_aseguramiento   NUMBER(12)      DEFAULT 1 NOT NULL,
     activo                  NUMBER(1)       DEFAULT 1 NOT NULL,
     fecha_creacion          DATE            DEFAULT (SYSTIMESTAMP AT TIME ZONE 'America/Bogota') NOT NULL,
     id_usuario_creacion     NUMBER(12),
@@ -35,6 +35,8 @@ CREATE TABLE tkr_horarios_profesional (
     CONSTRAINT tkr_horarios_profesional_pk PRIMARY KEY (id),
     CONSTRAINT tkr_horarios_prof_usu_fk FOREIGN KEY (id_usuario) 
         REFERENCES tkr_usuarios (id),
+    CONSTRAINT fk_tkr_hor_prof_aseg FOREIGN KEY (id_tipo_aseguramiento)
+        REFERENCES tkr_tipos_aseguramiento (id),
     CONSTRAINT tkr_horarios_prof_dia_ck CHECK (
         dia_semana IN ('LU', 'MA', 'MI', 'JU', 'VI', 'SA', 'DO')
     ),
@@ -43,9 +45,6 @@ CREATE TABLE tkr_horarios_profesional (
     ),
     CONSTRAINT tkr_horarios_prof_fechas_ck CHECK (
         fecha_final IS NULL OR fecha_inicial <= fecha_final
-    ),
-    CONSTRAINT ck_tkr_hor_prof_tipo CHECK (
-        tipo_atencion IN ('V', 'O', 'G')
     )
 );
 /

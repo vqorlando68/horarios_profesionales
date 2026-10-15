@@ -52,7 +52,7 @@ CREATE OR REPLACE PACKAGE BODY pkgca_tkr_franjas_profesional AS
                    hora_hasta,
                    fecha_inicial,
                    fecha_final,
-                   tipo_atencion,
+                   id_tipo_aseguramiento,
                    activo,
                    fecha_creacion
               FROM tkr_franjas_profesional

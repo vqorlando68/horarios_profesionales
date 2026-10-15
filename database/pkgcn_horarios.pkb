@@ -24,11 +24,9 @@ AS
                    u.telefono,
                    NVL(u.trabaja_festivos, 'N') AS trabaja_festivos,
                    pkgcn_profesionales.f_url_foto_profesional(u.id) AS url_foto
-              FROM tkr_usuarios      u,
-                   tkr_roles_usuario ru
-             WHERE ru.id_usuario = u.id
-               AND ru.id_rol = 4
-               AND u.id_estado_usuario = 1
+              FROM tkr_usuarios u
+         WHERE u.id_estado_usuario = 1
+           AND EXISTS (SELECT 1 FROM tkr_roles_usuario ru WHERE ru.id_usuario = u.id AND ru.id_rol = 4)
                AND (
                    p_filtro_nombre IS NULL
                    OR UPPER(u.nombres || ' ' || u.apellidos) LIKE '%' || UPPER(TRIM(p_filtro_nombre)) || '%'
@@ -67,11 +65,9 @@ AS
                    RETURNING CLOB
                )
           INTO p_json_salida
-          FROM tkr_usuarios      u,
-               tkr_roles_usuario ru
-         WHERE ru.id_usuario = u.id
-           AND ru.id_rol = 4
-           AND u.id_estado_usuario = 1
+          FROM tkr_usuarios u
+         WHERE u.id_estado_usuario = 1
+           AND EXISTS (SELECT 1 FROM tkr_roles_usuario ru WHERE ru.id_usuario = u.id AND ru.id_rol = 4)
            AND (
                p_filtro_nombre IS NULL
                OR UPPER(u.nombres || ' ' || u.apellidos) LIKE '%' || UPPER(TRIM(p_filtro_nombre)) || '%'
@@ -135,6 +131,7 @@ AS
             hora_hasta,
             fecha_inicial,
             fecha_final,
+            id_tipo_aseguramiento,
             activo,
             fecha_creacion
         )
@@ -149,15 +146,18 @@ AS
                    THEN TO_DATE(TRIM(jt.fecha_final), 'YYYY-MM-DD')
                    ELSE NULL
                END,
+               NVL(jt.id_tipo_aseguramiento, CASE WHEN UPPER(TRIM(jt.tipo_atencion)) = 'O' THEN 2 ELSE 1 END),
                1,
                SYSDATE
           FROM JSON_TABLE(p_json_horarios, '$.horarios[*]'
                    COLUMNS (
-                       dia_semana    VARCHAR2(10) PATH '$.dia_semana',
-                       hora_desde    VARCHAR2(10) PATH '$.hora_desde',
-                       hora_hasta    VARCHAR2(10) PATH '$.hora_hasta',
-                       fecha_inicial VARCHAR2(20) PATH '$.fecha_inicial',
-                       fecha_final   VARCHAR2(20) PATH '$.fecha_final'
+                       dia_semana            VARCHAR2(10) PATH '$.dia_semana',
+                       hora_desde            VARCHAR2(10) PATH '$.hora_desde',
+                       hora_hasta            VARCHAR2(10) PATH '$.hora_hasta',
+                       fecha_inicial         VARCHAR2(20) PATH '$.fecha_inicial',
+                       fecha_final           VARCHAR2(20) PATH '$.fecha_final',
+                       id_tipo_aseguramiento NUMBER       PATH '$.id_tipo_aseguramiento',
+                       tipo_atencion         VARCHAR2(10) PATH '$.tipo_atencion'
                    )
                ) jt;
     END p_guardar_horarios_profesional;
@@ -187,7 +187,8 @@ AS
                tkr_roles_usuario ru
           WHERE ru.id_usuario = u.id
             AND ru.id_rol = 4
-            AND u.id = p_id_usuario;
+            AND u.id = p_id_usuario
+            AND ROWNUM = 1;
 
         -- B. Horarios registrados del profesional con su rango de vigencia
         SELECT COALESCE(
@@ -199,7 +200,9 @@ AS
                            'hora_hasta'    VALUE h.hora_hasta,
                            'fecha_inicial' VALUE TO_CHAR(h.fecha_inicial, 'YYYY-MM-DD'),
                            'fecha_final'   VALUE TO_CHAR(h.fecha_final, 'YYYY-MM-DD'),
-                           'tipo_atencion' VALUE NVL(h.tipo_atencion, 'V'),
+                           'id_tipo_aseguramiento' VALUE NVL(h.id_tipo_aseguramiento, 1),
+                            'tipo_atencion'         VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'O' ELSE 'V' END),
+                            'tipo_aseguramiento'    VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'Obligatorio' ELSE 'Voluntario' END),
                            'activo'        VALUE h.activo
                        )
                        ORDER BY CASE h.dia_semana

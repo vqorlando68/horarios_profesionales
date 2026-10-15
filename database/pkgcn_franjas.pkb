@@ -61,7 +61,7 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
             hora_hasta,
             fecha_inicial,
             fecha_final,
-            tipo_atencion,
+            id_tipo_aseguramiento,
             activo,
             fecha_creacion
         )
@@ -76,7 +76,7 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                    THEN TO_DATE(TRIM(jt.fecha_final), 'YYYY-MM-DD')
                    ELSE NULL
                END,
-               NVL(UPPER(TRIM(jt.tipo_atencion)), 'V'),
+               NVL(jt.id_tipo_aseguramiento, CASE WHEN UPPER(TRIM(jt.tipo_atencion)) = 'O' THEN 2 ELSE 1 END),
                1,
                SYSDATE
           FROM JSON_TABLE(p_json_franjas, '$.franjas[*]'
@@ -86,7 +86,8 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                        hora_hasta    VARCHAR2(10) PATH '$.hora_hasta',
                        fecha_inicial VARCHAR2(20) PATH '$.fecha_inicial',
                        fecha_final   VARCHAR2(20) PATH '$.fecha_final',
-                       tipo_atencion VARCHAR2(10) PATH '$.tipo_atencion'
+                       id_tipo_aseguramiento NUMBER       PATH '$.id_tipo_aseguramiento',
+                       tipo_atencion         VARCHAR2(10) PATH '$.tipo_atencion'
                    )
                ) jt;
     END p_guardar_franjas_profesional;
@@ -109,7 +110,9 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                                'hora_hasta'    VALUE h.hora_hasta,
                                'fecha_inicial' VALUE TO_CHAR(h.fecha_inicial, 'YYYY-MM-DD'),
                                'fecha_final'   VALUE TO_CHAR(h.fecha_final, 'YYYY-MM-DD'),
-                               'tipo_atencion' VALUE NVL(h.tipo_atencion, 'V'),
+                               'id_tipo_aseguramiento' VALUE NVL(h.id_tipo_aseguramiento, 1),
+                               'tipo_atencion'         VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'O' ELSE 'V' END),
+                               'tipo_aseguramiento'    VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'Obligatorio' ELSE 'Voluntario' END),
                                'activo'        VALUE h.activo
                            )
                            ORDER BY CASE h.dia_semana

@@ -67,12 +67,16 @@ interface HorarioRegistrado {
   activo?: number;
 }
 
+// Tipos y configuración para Tipos de Aseguramiento (1: Voluntario, 2: Obligatorio)
+type TipoAseguramientoId = 1 | 2;
+
 // Interfaces dedicadas para Franjas de Atención por Rango de Fechas
 interface FranjaHorario {
   idTemp: string;
   hora_desde: string;
   hora_hasta: string;
-  tipo_atencion: TipoAtencion;
+  id_tipo_aseguramiento: number;
+  tipo_atencion?: TipoAtencion;
 }
 
 interface DiaConfigFranja {
@@ -87,24 +91,31 @@ interface FranjaRegistrada {
   hora_hasta: string;
   fecha_inicial: string;
   fecha_final: string | null;
-  tipo_atencion: TipoAtencion;
+  id_tipo_aseguramiento: number;
+  tipo_atencion?: TipoAtencion;
+  tipo_aseguramiento?: string;
   activo?: number;
 }
 
-const TIPOS_ATENCION: Array<{
+const TIPOS_ASEGURAMIENTO: Array<{
+  id: TipoAseguramientoId;
   codigo: TipoAtencion;
   nombre: string;
   descripcion: string;
   badgeClass: string;
 }> = [
-  { codigo: 'V', nombre: 'Voluntario', descripcion: 'Atención voluntaria', badgeClass: 'atencion-voluntario' },
-  { codigo: 'O', nombre: 'Obligatorio', descripcion: 'Atención obligatoria', badgeClass: 'atencion-obligatorio' },
+  { id: 1, codigo: 'V', nombre: 'Voluntario', descripcion: 'Atención voluntaria (ID: 1)', badgeClass: 'atencion-voluntario' },
+  { id: 2, codigo: 'O', nombre: 'Obligatorio', descripcion: 'Atención obligatoria (ID: 2)', badgeClass: 'atencion-obligatorio' },
 ];
 
-// Helper para visualización de tipo de atención (solo Voluntario y Obligatorio)
-const obtenerConfigTipoAtencion = (tipo: string) => {
-  if (tipo === 'O') return { codigo: 'O', nombre: 'Obligatorio', badgeClass: 'atencion-obligatorio' };
-  return { codigo: 'V', nombre: 'Voluntario', badgeClass: 'atencion-voluntario' };
+const TIPOS_ATENCION = TIPOS_ASEGURAMIENTO;
+
+// Helper para visualización de tipo de aseguramiento / atención (soporta 1, 2, 'V', 'O')
+const obtenerConfigTipoAtencion = (tipoOrId: any) => {
+  if (tipoOrId === 2 || tipoOrId === '2' || tipoOrId === 'O' || tipoOrId === 'Obligatorio') {
+    return { id: 2, codigo: 'O' as TipoAtencion, nombre: 'Obligatorio', badgeClass: 'atencion-obligatorio' };
+  }
+  return { id: 1, codigo: 'V' as TipoAtencion, nombre: 'Voluntario', badgeClass: 'atencion-voluntario' };
 };
 
 // Función utilitaria para formatear horas a 12 horas con AM / PM
@@ -343,13 +354,13 @@ export default function HorariosPage() {
 
   // Franjas de Atención por Días de la Semana (Independiente)
   const [diasConfigFranjas, setDiasConfigFranjas] = useState<Record<string, DiaConfigFranja>>({
-    LU: { activo: true, turnos: [{ idTemp: 'f1', hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' }, { idTemp: 'f2', hora_desde: '14:00', hora_hasta: '18:00', tipo_atencion: 'O' }] },
-    MA: { activo: true, turnos: [{ idTemp: 'f3', hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' }, { idTemp: 'f4', hora_desde: '14:00', hora_hasta: '18:00', tipo_atencion: 'O' }] },
-    MI: { activo: true, turnos: [{ idTemp: 'f5', hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' }, { idTemp: 'f6', hora_desde: '14:00', hora_hasta: '18:00', tipo_atencion: 'O' }] },
-    JU: { activo: true, turnos: [{ idTemp: 'f7', hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' }, { idTemp: 'f8', hora_desde: '14:00', hora_hasta: '18:00', tipo_atencion: 'O' }] },
-    VI: { activo: true, turnos: [{ idTemp: 'f9', hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' }, { idTemp: 'f10', hora_desde: '14:00', hora_hasta: '18:00', tipo_atencion: 'O' }] },
-    SA: { activo: false, turnos: [{ idTemp: 'f11', hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' }] },
-    DO: { activo: false, turnos: [{ idTemp: 'f12', hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' }] },
+    LU: { activo: true, turnos: [{ idTemp: 'f1', hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' }, { idTemp: 'f2', hora_desde: '14:00', hora_hasta: '18:00', id_tipo_aseguramiento: 2, tipo_atencion: 'O' }] },
+    MA: { activo: true, turnos: [{ idTemp: 'f3', hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' }, { idTemp: 'f4', hora_desde: '14:00', hora_hasta: '18:00', id_tipo_aseguramiento: 2, tipo_atencion: 'O' }] },
+    MI: { activo: true, turnos: [{ idTemp: 'f5', hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' }, { idTemp: 'f6', hora_desde: '14:00', hora_hasta: '18:00', id_tipo_aseguramiento: 2, tipo_atencion: 'O' }] },
+    JU: { activo: true, turnos: [{ idTemp: 'f7', hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' }, { idTemp: 'f8', hora_desde: '14:00', hora_hasta: '18:00', id_tipo_aseguramiento: 2, tipo_atencion: 'O' }] },
+    VI: { activo: true, turnos: [{ idTemp: 'f9', hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' }, { idTemp: 'f10', hora_desde: '14:00', hora_hasta: '18:00', id_tipo_aseguramiento: 2, tipo_atencion: 'O' }] },
+    SA: { activo: false, turnos: [{ idTemp: 'f11', hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' }] },
+    DO: { activo: false, turnos: [{ idTemp: 'f12', hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' }] },
   });
 
   // Formulario nueva ausencia
@@ -1219,6 +1230,7 @@ export default function HorariosPage() {
               idTemp: 'f_' + Date.now().toString() + Math.random(),
               hora_desde: nuevaDesde,
               hora_hasta: nuevaHasta,
+              id_tipo_aseguramiento: 1,
               tipo_atencion: 'V',
             },
           ],
@@ -1246,7 +1258,7 @@ export default function HorariosPage() {
   const actualizarFranja = (
     diaKey: string,
     index: number,
-    campo: 'hora_desde' | 'hora_hasta' | 'tipo_atencion',
+    campo: 'hora_desde' | 'hora_hasta' | 'tipo_atencion' | 'id_tipo_aseguramiento',
     valor: any
   ) => {
     setDiasConfigFranjas((prev) => {
@@ -1274,7 +1286,8 @@ export default function HorariosPage() {
             idTemp: 'f_copy_' + Date.now().toString() + idx + Math.random(),
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
-            tipo_atencion: t.tipo_atencion || 'V',
+            id_tipo_aseguramiento: t.id_tipo_aseguramiento || (t.tipo_atencion === 'O' ? 2 : 1),
+            tipo_atencion: t.tipo_atencion || (t.id_tipo_aseguramiento === 2 ? 'O' : 'V'),
           })),
         };
       });
@@ -1332,6 +1345,7 @@ export default function HorariosPage() {
       hora_hasta: string;
       fecha_inicial: string;
       fecha_final: string | null;
+      id_tipo_aseguramiento: number;
       tipo_atencion: TipoAtencion;
     }> = [];
 
@@ -1343,17 +1357,16 @@ export default function HorariosPage() {
             notificar('error', `En ${dia.nombre}, la hora inicial (${t.hora_desde}) debe ser menor que la final (${t.hora_hasta}).`);
             return;
           }
-          if (!t.tipo_atencion) {
-            notificar('error', `En ${dia.nombre}, debe seleccionar el tipo de atención (V/O/G) para cada franja.`);
-            return;
-          }
+          const idAseg = t.id_tipo_aseguramiento || (t.tipo_atencion === 'O' ? 2 : 1);
+          const codAtenc: TipoAtencion = idAseg === 2 ? 'O' : 'V';
           listaFranjasAplanada.push({
             dia_semana: dia.key,
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
             fecha_inicial: fechaInicialFranjas,
             fecha_final: esIndefinidoFranjas || !fechaFinalFranjas ? null : fechaFinalFranjas,
-            tipo_atencion: t.tipo_atencion,
+            id_tipo_aseguramiento: idAseg,
+            tipo_atencion: codAtenc,
           });
         }
       }
@@ -1491,14 +1504,15 @@ export default function HorariosPage() {
             idTemp: `f_${dia.key}_edit_${idx}_${Date.now()}_${Math.random()}`,
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
-            tipo_atencion: t.tipo_atencion,
+            id_tipo_aseguramiento: t.id_tipo_aseguramiento || (t.tipo_atencion === 'O' ? 2 : 1),
+            tipo_atencion: t.tipo_atencion || (t.id_tipo_aseguramiento === 2 ? 'O' : 'V'),
           })),
         };
       } else {
         nuevaConfigDiasFranjas[dia.key] = {
           activo: false,
           turnos: [
-            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' },
+            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' },
           ],
         };
       }
@@ -1592,14 +1606,15 @@ export default function HorariosPage() {
             idTemp: `f_imp_${dia.key}_${idx}_${Date.now()}_${Math.random()}`,
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
-            tipo_atencion: 'V' as TipoAtencion,
+            id_tipo_aseguramiento: (t as any).id_tipo_aseguramiento || 1,
+            tipo_atencion: ((t as any).id_tipo_aseguramiento === 2 || (t as any).tipo_atencion === 'O') ? 'O' : 'V',
           })),
         };
       } else {
         nuevaConfigDiasFranjas[dia.key] = {
           activo: false,
           turnos: [
-            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', tipo_atencion: 'V' },
+            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' },
           ],
         };
       }
@@ -1701,8 +1716,8 @@ export default function HorariosPage() {
 
       // Filtrar según los tipos de franja seleccionados en los checks
       franjasDia = franjasDia.filter((f) => {
-        if (f.tipo_atencion === 'V') return filtroVerVoluntario;
-        if (f.tipo_atencion === 'O') return filtroVerObligatorio;
+        if (f.id_tipo_aseguramiento === 1 || f.tipo_atencion === 'V') return filtroVerVoluntario;
+        if (f.id_tipo_aseguramiento === 2 || f.tipo_atencion === 'O') return filtroVerObligatorio;
         return true;
       });
 
@@ -3236,24 +3251,25 @@ export default function HorariosPage() {
 
                             {/* Selector de Tipo de Atención Exclusivo de la Franja */}
                             <div className="tipo-atencion-selector-wrap">
-                              <label className="tipo-atencion-label">Tipo de Atención:</label>
+                              <label className="tipo-atencion-label">Tipo de Aseguramiento:</label>
                               <div className="tipo-atencion-chips">
-                                {TIPOS_ATENCION.map((tAtenc) => {
-                                  const activo = turno.tipo_atencion === tAtenc.codigo;
+                                {TIPOS_ASEGURAMIENTO.map((tAseg) => {
+                                  const activo = turno.id_tipo_aseguramiento === tAseg.id || turno.tipo_atencion === tAseg.codigo;
                                   return (
                                     <button
-                                      key={tAtenc.codigo}
+                                      key={tAseg.id}
                                       type="button"
-                                      onClick={() =>
-                                        actualizarFranja(dia.key, idx, 'tipo_atencion', tAtenc.codigo)
-                                      }
-                                      className={`chip-tipo-atenc ${tAtenc.badgeClass} ${
+                                      onClick={() => {
+                                        actualizarFranja(dia.key, idx, 'id_tipo_aseguramiento', tAseg.id);
+                                        actualizarFranja(dia.key, idx, 'tipo_atencion', tAseg.codigo);
+                                      }}
+                                      className={`chip-tipo-atenc ${tAseg.badgeClass} ${
                                         activo ? 'active' : ''
                                       }`}
-                                      title={tAtenc.descripcion}
+                                      title={tAseg.descripcion}
                                     >
-                                      <span className="chip-code">{tAtenc.codigo}</span>
-                                      <span className="chip-text">{tAtenc.nombre}</span>
+                                      <span className="chip-code">{tAseg.id}</span>
+                                      <span className="chip-text">{tAseg.nombre}</span>
                                     </button>
                                   );
                                 })}
@@ -3667,7 +3683,7 @@ export default function HorariosPage() {
                           {/* Franjas de Atención (Debajo, con color distintivo por tipo) */}
                           {dataDia.franjasDia.slice(0, 3).map((fr, idx) => {
                             const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                            const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
+                            const claseTipo = (fr.id_tipo_aseguramiento === 2 || fr.tipo_atencion === 'O') ? 'obligatorio' : 'voluntario';
                             return (
                               <div
                                 key={`fr_${idx}`}
@@ -3772,7 +3788,7 @@ export default function HorariosPage() {
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 {dataDia.franjasDia.map((fr, idx) => {
                                   const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                                  const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
+                                  const claseTipo = (fr.id_tipo_aseguramiento === 2 || fr.tipo_atencion === 'O') ? 'obligatorio' : 'voluntario';
                                   return (
                                     <div key={`w_fr_${idx}`} className={`cal-event-franja ${claseTipo}`} style={{ padding: '6px 8px' }}>
                                       <div>
@@ -4020,7 +4036,7 @@ export default function HorariosPage() {
                               </span>
                               {dataDia.franjasDia.map((fr, idx) => {
                                 const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                                const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
+                                const claseTipo = (fr.id_tipo_aseguramiento === 2 || fr.tipo_atencion === 'O') ? 'obligatorio' : 'voluntario';
                                 return (
                                   <span key={idx} className={`cal-event-franja ${claseTipo}`} style={{ display: 'inline-flex', padding: '3px 8px' }}>
                                     {formatearHora12(fr.hora_desde)} - {formatearHora12(fr.hora_hasta)} ({confTipo.nombre})
@@ -4106,7 +4122,7 @@ export default function HorariosPage() {
                             ) : (
                               dataDia.franjasDia.map((fr, idx) => {
                                 const confTipo = obtenerConfigTipoAtencion(fr.tipo_atencion);
-                                const claseTipo = fr.tipo_atencion === 'O' ? 'obligatorio' : 'voluntario';
+                                const claseTipo = (fr.id_tipo_aseguramiento === 2 || fr.tipo_atencion === 'O') ? 'obligatorio' : 'voluntario';
                                 return (
                                   <div key={idx} className={`cal-event-franja ${claseTipo}`} style={{ padding: '6px 10px', fontSize: '12px', marginBottom: '4px' }}>
                                     <span>{formatearHora12(fr.hora_desde)} a {formatearHora12(fr.hora_hasta)}</span>

@@ -176,10 +176,14 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
                 v_fecha_inicial_str := TRIM(v_elem_franja.get_string('fecha_inicial'));
                 v_fecha_final_str   := TRIM(v_elem_franja.get_string('fecha_final'));
 
-                IF v_elem_franja.has('tipo_atencion') THEN
+                IF v_elem_franja.has('id_tipo_aseguramiento') THEN
+                    IF v_elem_franja.get_number('id_tipo_aseguramiento') NOT IN (1, 2) THEN
+                        RAISE_APPLICATION_ERROR(-20012, 'Tipo de aseguramiento inválido. Debe ser 1 (Voluntario) o 2 (Obligatorio).');
+                    END IF;
+                ELSIF v_elem_franja.has('tipo_atencion') THEN
                     v_tipo_atencion := UPPER(TRIM(v_elem_franja.get_string('tipo_atencion')));
-                    IF v_tipo_atencion NOT IN ('V', 'O', 'G') THEN
-                        RAISE_APPLICATION_ERROR(-20012, 'Tipo de atención inválido (' || v_tipo_atencion || '). Debe ser V (Voluntario), O (Obligatorio) o G (Giris).');
+                    IF v_tipo_atencion NOT IN ('V', 'O') THEN
+                        RAISE_APPLICATION_ERROR(-20012, 'Tipo de atención/aseguramiento inválido (' || v_tipo_atencion || '). Debe ser 1/V (Voluntario) o 2/O (Obligatorio).');
                     END IF;
                 END IF;
 

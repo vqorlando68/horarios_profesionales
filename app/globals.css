@@ -3726,4 +3726,407 @@ body {
   color: #991B1B;
 }
 
+/* ==========================================================================
+   ESTILOS: VISTA TIEMPOS DE ATENCIÓN
+   ========================================================================== */
+.tiempos-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.tiempos-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  gap: 12px;
+}
+
+[data-theme="light"] .tiempos-loading-state {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #64748B;
+}
+
+.tiempo-card {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.tiempo-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] .tiempo-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .tiempo-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.tiempo-card.tiempo-voluntario {
+  border-top: 4px solid var(--accent-purple);
+}
+
+.tiempo-card.tiempo-obligatorio {
+  border-top: 4px solid var(--accent-orange);
+}
+
+.tiempo-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.tiempo-card-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tiempo-card-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+[data-theme="light"] .tiempo-card-heading {
+  color: #0F172A;
+}
+
+.tiempo-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+[data-theme="light"] .tiempo-card-desc {
+  color: #64748B;
+}
+
+.tiempo-tag-configurado {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11.5px;
+  font-weight: 700;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--color-success);
+}
+
+.tiempo-tag-pendiente {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11.5px;
+  font-weight: 700;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #FBBF24;
+}
+
+[data-theme="light"] .tiempo-tag-pendiente {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.tiempo-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tiempo-input-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+[data-theme="light"] .tiempo-input-label {
+  color: #475569;
+}
+
+.tiempo-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.tiempo-number-stepper {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  padding: 4px 6px;
+  gap: 6px;
+}
+
+[data-theme="light"] .tiempo-number-stepper {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.tiempo-step-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tiempo-step-btn:hover:not(:disabled) {
+  background: var(--accent-teal);
+  color: #030712;
+  border-color: var(--accent-teal);
+}
+
+.tiempo-step-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .tiempo-step-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #1E293B;
+}
+
+[data-theme="light"] .tiempo-step-btn:hover:not(:disabled) {
+  background: #0D9488;
+  color: #FFFFFF;
+}
+
+.tiempo-number-input {
+  width: 60px;
+  text-align: center;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 800;
+  outline: none;
+}
+
+[data-theme="light"] .tiempo-number-input {
+  color: #0F172A;
+}
+
+.tiempo-unit-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding-right: 4px;
+}
+
+.tiempo-quick-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tiempo-quick-pill {
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tiempo-quick-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tiempo-quick-pill.active {
+  background: rgba(0, 229, 163, 0.18);
+  border-color: var(--accent-teal);
+  color: var(--accent-teal);
+  font-weight: 700;
+}
+
+[data-theme="light"] .tiempo-quick-pill {
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+  color: #475569;
+}
+
+[data-theme="light"] .tiempo-quick-pill:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+[data-theme="light"] .tiempo-quick-pill.active {
+  background: #CCFBF1;
+  border-color: #0D9488;
+  color: #0F766E;
+}
+
+.tiempo-calc-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(2, 6, 23, 0.35);
+  border-radius: var(--radius-md);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  margin-top: 4px;
+}
+
+[data-theme="light"] .tiempo-calc-box {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.tiempo-calc-icon {
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+}
+
+.tiempo-calc-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+[data-theme="light"] .tiempo-calc-text {
+  color: #475569;
+}
+
+.tiempo-calc-number {
+  font-weight: 800;
+  color: var(--accent-teal);
+  font-family: var(--font-mono);
+}
+
+[data-theme="light"] .tiempo-calc-number {
+  color: #0F766E;
+}
+
+.tiempo-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .tiempo-card-actions {
+  border-top-color: #E2E8F0;
+}
+
+.btn-tiempo-save-single {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(0, 229, 163, 0.15);
+  border: 1px solid var(--accent-teal);
+  color: var(--accent-teal);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-tiempo-save-single:hover {
+  background: var(--accent-teal);
+  color: #030712;
+}
+
+[data-theme="light"] .btn-tiempo-save-single {
+  background: #CCFBF1;
+  border-color: #0D9488;
+  color: #0F766E;
+}
+
+[data-theme="light"] .btn-tiempo-save-single:hover {
+  background: #0D9488;
+  color: #FFFFFF;
+}
+
+.btn-tiempo-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: var(--color-danger);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-tiempo-delete:hover {
+  background: var(--color-danger);
+  color: #FFFFFF;
+  border-color: var(--color-danger);
+}
+
+[data-theme="light"] .btn-tiempo-delete {
+  background: #FEE2E2;
+  border-color: #EF4444;
+  color: #DC2626;
+}
+
+[data-theme="light"] .btn-tiempo-delete:hover {
+  background: #DC2626;
+  color: #FFFFFF;
+}
+
+
 

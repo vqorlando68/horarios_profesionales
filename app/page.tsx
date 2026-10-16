@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
+  Timer,
   Calendar,
   Clock,
   User,
@@ -69,6 +70,17 @@ interface HorarioRegistrado {
 
 // Tipos y configuración para Tipos de Aseguramiento (1: Voluntario, 2: Obligatorio)
 type TipoAseguramientoId = 1 | 2;
+
+interface TiempoAtencionItem {
+  id?: number | null;
+  id_usuario?: number;
+  id_tipo_aseguramiento: number;
+  tipo_aseguramiento: string;
+  duracion: number;
+  configurado?: number;
+  activo?: number;
+}
+
 
 // Interfaces dedicadas para Franjas de Atención por Rango de Fechas
 interface FranjaHorario {
@@ -201,7 +213,17 @@ export default function HorariosPage() {
   const [franjasRegistradas, setFranjasRegistradas] = useState<FranjaRegistrada[]>([]);
   const [expandidoFranjasRegistradas, setExpandidoFranjasRegistradas] = useState<boolean>(true);
   const [ausencias, setAusencias] = useState<Ausencia[]>([]);
-  const [tabActiva, setTabActiva] = useState<'horarios' | 'franjas' | 'ausencias' | 'calendario'>('horarios');
+    // Estados de Tiempos de Atención
+  const [tiemposAtencion, setTiemposAtencion] = useState<TiempoAtencionItem[]>([
+    { id_tipo_aseguramiento: 1, tipo_aseguramiento: 'Voluntario', duracion: 20, configurado: 0 },
+    { id_tipo_aseguramiento: 2, tipo_aseguramiento: 'Obligatorio', duracion: 30, configurado: 0 }
+  ]);
+  const [cargandoTiempos, setCargandoTiempos] = useState<boolean>(false);
+  const [guardandoTiempos, setGuardandoTiempos] = useState<boolean>(false);
+  const [tiempoAEliminar, setTiempoAEliminar] = useState<TiempoAtencionItem | null>(null);
+  const [eliminandoTiempo, setEliminandoTiempo] = useState<boolean>(false);
+
+  const [tabActiva, setTabActiva] = useState<'horarios' | 'franjas' | 'ausencias' | 'calendario' | 'tiempos'>('horarios');
 
   // Estados del Módulo de Calendario
   const [vistaCalendario, setVistaCalendario] = useState<'mes' | 'semana' | 'dia' | 'agenda'>('mes');
@@ -485,6 +507,135 @@ export default function HorariosPage() {
   };
 
   // Cargar agenda y franjas al seleccionar un profesional
+    // Funciones para Tiempos de Atención
+  const cargarTiemposAtencion = async (idUsuario: number) => {
+    setCargandoTiempos(true);
+    try {
+      const res = await fetch(`/api/tiempos-atencion?id_usuario=${idUsuario}&_t=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data && data.codigo === 0 && Array.isArray(data.tiempos) && data.tiempos.length > 0) {
+        setTiemposAtencion(data.tiempos.map((t: any) => ({
+          ...t,
+          duracion: t.duracion !== null && t.duracion !== undefined ? t.duracion : 20,
+        })));
+      } else {
+        setTiemposAtencion([
+          { id_tipo_aseguramiento: 1, tipo_aseguramiento: 'Voluntario', duracion: 20, configurado: 0 },
+          { id_tipo_aseguramiento: 2, tipo_aseguramiento: 'Obligatorio', duracion: 20, configurado: 0 }
+        ]);
+      }
+    } catch (err) {
+      console.warn('Error al cargar tiempos de atención:', err);
+    } finally {
+      setCargandoTiempos(false);
+    }
+  };
+
+  const actualizarDuracionTiempo = (idTipoAseguramiento: number, nuevaDuracion: number) => {
+    setTiemposAtencion((prev) =>
+      prev.map((t) =>
+        t.id_tipo_aseguramiento === idTipoAseguramiento
+          ? { ...t, duracion: Math.max(1, nuevaDuracion) }
+          : t
+      )
+    );
+  };
+
+  const guardarTiempoIndividual = async (t: TiempoAtencionItem) => {
+    if (!profesionalSeleccionado) {
+      notificar('error', 'Seleccione un profesional primero.');
+      return;
+    }
+    if (!t.duracion || t.duracion <= 0) {
+      notificar('error', `La duración para ${t.tipo_aseguramiento} debe ser mayor a 0 minutos.`);
+      return;
+    }
+    setGuardandoTiempos(true);
+    try {
+      const payload = {
+        id_usuario: profesionalSeleccionado.id_usuario,
+        tiempos: [{ id_tipo_aseguramiento: t.id_tipo_aseguramiento, duracion: Number(t.duracion) }],
+      };
+      const res = await fetch('/api/tiempos-atencion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data && data.codigo === 0) {
+        notificar('success', `¡Tiempo de atención para ${t.tipo_aseguramiento} guardado exitosamente en Oracle DB!`);
+        await cargarTiemposAtencion(profesionalSeleccionado.id_usuario);
+      } else {
+        notificar('error', data.mensaje || 'Error al guardar.');
+      }
+    } catch (err: any) {
+      notificar('error', err.message || 'Error de conexión.');
+    } finally {
+      setGuardandoTiempos(false);
+    }
+  };
+
+  const guardarTiemposAtencion = async () => {
+    if (!profesionalSeleccionado) {
+      notificar('error', 'Seleccione un profesional primero.');
+      return;
+    }
+    const tiemposAGuardar = tiemposAtencion.filter(t => t.duracion && t.duracion > 0);
+    if (tiemposAGuardar.length === 0) {
+      notificar('error', 'Debe configurar al menos un tiempo de atención mayor a 0 minutos.');
+      return;
+    }
+    setGuardandoTiempos(true);
+    try {
+      const payload = {
+        id_usuario: profesionalSeleccionado.id_usuario,
+        tiempos: tiemposAGuardar.map((t) => ({
+          id_tipo_aseguramiento: t.id_tipo_aseguramiento,
+          duracion: Number(t.duracion),
+        })),
+      };
+      const res = await fetch('/api/tiempos-atencion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data && data.codigo === 0) {
+        notificar('success', '¡Tiempos de atención guardados exitosamente en Oracle DB!');
+        await cargarTiemposAtencion(profesionalSeleccionado.id_usuario);
+      } else {
+        notificar('error', data.mensaje || 'Error al guardar los tiempos de atención.');
+      }
+    } catch (err: any) {
+      notificar('error', err.message || 'Error de conexión.');
+    } finally {
+      setGuardandoTiempos(false);
+    }
+  };
+
+  const confirmarYEliminarTiempo = async () => {
+    if (!profesionalSeleccionado || !tiempoAEliminar) return;
+    setEliminandoTiempo(true);
+    try {
+      const res = await fetch(
+        `/api/tiempos-atencion?id_usuario=${profesionalSeleccionado.id_usuario}&id_tipo_aseguramiento=${tiempoAEliminar.id_tipo_aseguramiento}`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json();
+      if (data && data.codigo === 0) {
+        notificar('success', `Tiempo de atención para ${tiempoAEliminar.tipo_aseguramiento} eliminado exitosamente de Oracle DB.`);
+        setTiempoAEliminar(null);
+        await cargarTiemposAtencion(profesionalSeleccionado.id_usuario);
+      } else {
+        notificar('error', data.mensaje || 'Error al eliminar tiempo de atención.');
+      }
+    } catch (err: any) {
+      notificar('error', err.message || 'Error de conexión.');
+    } finally {
+      setEliminandoTiempo(false);
+    }
+  };
+
   const seleccionarProfesional = async (prof: Profesional) => {
     setProfesionalSeleccionado(prof);
     setTrabajaFestivosRango(prof.trabaja_festivos === 'S' ? 'S' : 'N');
@@ -494,6 +645,7 @@ export default function HorariosPage() {
     setBusquedaProf('');
     setCargando(true);
     try {
+      cargarTiemposAtencion(prof.id_usuario);
       const [resAgenda, resFranjas] = await Promise.all([
         fetch(`/api/agenda?id_usuario=${prof.id_usuario}&_t=${Date.now()}`, { cache: 'no-store' }),
         fetch(`/api/franjas?id_usuario=${prof.id_usuario}&_t=${Date.now()}`, { cache: 'no-store' }),
@@ -2351,7 +2503,7 @@ export default function HorariosPage() {
           onClick={() => setTabActiva('horarios')}
         >
           <Clock size={16} />
-          Configurar Horarios por Rango de Fechas
+          Horario Profesional
           <span className="badge-count">{totalTurnosActivos} turnos listos</span>
         </button>
         <button
@@ -2359,7 +2511,7 @@ export default function HorariosPage() {
           onClick={() => setTabActiva('franjas')}
         >
           <Sparkles size={16} />
-          Franjas de Atención por Rango de Fechas
+          Franjas de Atención
           <span className="badge-count">{totalFranjasActivas} franjas listas</span>
         </button>
         <button
@@ -2367,7 +2519,7 @@ export default function HorariosPage() {
           onClick={() => setTabActiva('ausencias')}
         >
           <CalendarOff size={16} />
-          Ausencias y Bloqueos de Agenda
+          Ausencias
           <span className="badge-count">{ausencias.length}</span>
         </button>
         <button
@@ -2376,6 +2528,13 @@ export default function HorariosPage() {
         >
           <CalendarDays size={16} />
           Calendario
+        </button>
+        <button
+          className={`tab-btn ${tabActiva === 'tiempos' ? 'active' : ''}`}
+          onClick={() => setTabActiva('tiempos')}
+        >
+          <Timer size={16} />
+          Tiempos de Atención
         </button>
       </div>
 
@@ -4168,6 +4327,266 @@ export default function HorariosPage() {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* VISTA 5: TIEMPOS DE ATENCIÓN POR PROFESIONAL Y ASEGURAMIENTO */}
+      {tabActiva === 'tiempos' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Cabecera Informativa */}
+          <div className="schedule-header-card">
+            <div className="schedule-header-info">
+              <div className="schedule-title-row">
+                <div className="schedule-icon-pill" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-cyan)' }}>
+                  <Timer size={22} />
+                </div>
+                <div>
+                  <h2 className="schedule-title">Configuración de Tiempos de Atención</h2>
+                  <p className="schedule-subtitle">
+                    Defina la duración en minutos de la consulta para cada tipo de aseguramiento con el profesional{' '}
+                    <strong>{profesionalSeleccionado ? profesionalSeleccionado.nombre_completo : 'seleccionado'}</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="schedule-header-actions">
+              <button
+                type="button"
+                className="btn-save-main"
+                onClick={guardarTiemposAtencion}
+                disabled={guardandoTiempos || !profesionalSeleccionado}
+                title="Guardar tiempos de atención en Oracle DB"
+              >
+                {guardandoTiempos ? (
+                  <>
+                    <RefreshCw size={16} className="spin-icon" />
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    <span>Guardar Tiempos</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Grid de Tarjetas de Tipos de Aseguramiento */}
+          {cargandoTiempos ? (
+            <div className="tiempos-loading-state">
+              <RefreshCw size={24} className="spin-icon" />
+              <p>Cargando configuración de tiempos desde Oracle DB...</p>
+            </div>
+          ) : (
+            <div className="tiempos-cards-grid">
+              {tiemposAtencion.map((t) => {
+                const confTipo = obtenerConfigTipoAtencion(t.id_tipo_aseguramiento);
+                const esObligatorio = t.id_tipo_aseguramiento === 2;
+                const pacientesPorHora = t.duracion > 0 ? (60 / t.duracion).toFixed(1) : '0';
+
+                return (
+                  <div
+                    key={t.id_tipo_aseguramiento}
+                    className={`tiempo-card ${esObligatorio ? 'tiempo-obligatorio' : 'tiempo-voluntario'}`}
+                  >
+                    <div className="tiempo-card-header">
+                      <div className="tiempo-card-title-group">
+                        <span className={`turno-atencion-pill ${confTipo.badgeClass}`}>
+                          {t.id_tipo_aseguramiento} · {t.tipo_aseguramiento}
+                        </span>
+                        <h3 className="tiempo-card-heading">
+                          Consulta {t.tipo_aseguramiento}
+                        </h3>
+                        <p className="tiempo-card-desc">
+                          {esObligatorio
+                            ? 'Tiempo asignado a citas bajo régimen obligatorio.'
+                            : 'Tiempo asignado a citas bajo régimen voluntario.'}
+                        </p>
+                      </div>
+
+                      <div className="tiempo-card-status">
+                        {t.configurado === 1 ? (
+                          <span className="tiempo-tag-configurado">
+                            <CheckCircle2 size={13} />
+                            Configurado en BD
+                          </span>
+                        ) : (
+                          <span className="tiempo-tag-pendiente">
+                            <Info size={13} />
+                            Sin Configurar (Opcional)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="tiempo-card-body">
+                      <label className="tiempo-input-label">Duración de la Cita (Minutos):</label>
+                      
+                      <div className="tiempo-input-row">
+                        <div className="tiempo-number-stepper">
+                          <button
+                            type="button"
+                            className="tiempo-step-btn"
+                            onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, (t.duracion || 20) - 5)}
+                            disabled={(t.duracion || 20) <= 5}
+                            title="Disminuir 5 minutos"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max="480"
+                            className="tiempo-number-input"
+                            value={t.duracion || 20}
+                            onChange={(e) =>
+                              actualizarDuracionTiempo(
+                                t.id_tipo_aseguramiento,
+                                parseInt(e.target.value) || 1
+                              )
+                            }
+                          />
+                          <span className="tiempo-unit-label">min</span>
+                          <button
+                            type="button"
+                            className="tiempo-step-btn"
+                            onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, (t.duracion || 20) + 5)}
+                            title="Aumentar 5 minutos"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Botones rápidos de selección de minutos */}
+                        <div className="tiempo-quick-pills">
+                          {[15, 20, 30, 45, 60].map((min) => (
+                            <button
+                              key={min}
+                              type="button"
+                              className={`tiempo-quick-pill ${(t.duracion || 20) === min ? 'active' : ''}`}
+                              onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, min)}
+                            >
+                              {min} min
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Estimación de Capacidad / Pacientes por Hora */}
+                      <div className="tiempo-calc-box">
+                        <div className="tiempo-calc-icon">
+                          <Clock size={16} />
+                        </div>
+                        <div className="tiempo-calc-text">
+                          <strong>Capacidad estimada:</strong> Aproximadamente{' '}
+                          <span className="tiempo-calc-number">{pacientesPorHora}</span> pacientes por hora
+                          de consulta continua.
+                        </div>
+                      </div>
+
+                      {/* Botones de Acción Individuales por Tipo */}
+                      <div className="tiempo-card-actions">
+                        <button
+                          type="button"
+                          className="btn-tiempo-save-single"
+                          onClick={() => guardarTiempoIndividual(t)}
+                          disabled={guardandoTiempos}
+                        >
+                          <Save size={14} />
+                          <span>{t.configurado === 1 ? 'Actualizar este tiempo' : 'Guardar este tiempo'}</span>
+                        </button>
+
+                        {t.configurado === 1 && (
+                          <button
+                            type="button"
+                            className="btn-tiempo-delete"
+                            onClick={() => setTiempoAEliminar(t)}
+                            disabled={guardandoTiempos}
+                            title="Eliminar este tiempo de atención de la base de datos"
+                          >
+                            <Trash2 size={14} />
+                            <span>Eliminar</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Banner de Ayuda y Reglas */}
+          <div className="info-banner-tip" style={{ marginTop: '8px' }}>
+            <Info size={18} color="var(--accent-teal)" style={{ flexShrink: 0 }} />
+            <div>
+              <strong>Uso de los Tiempos de Atención:</strong>
+              <p style={{ margin: '4px 0 0 0', opacity: 0.85, fontSize: '13px' }}>
+                La duración configurada en este módulo determina el fraccionamiento de citas dentro de las
+                Franjas de Atención definidas para el profesional. Permite a los pacientes y al sistema de citas
+                programar intervalos acordes al tipo de aseguramiento asignado.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+
+      {/* Modal In-App de Confirmación de Eliminación de Tiempo de Atención */}
+      {tiempoAEliminar && (
+        <div className="modal-backdrop" onClick={() => setTiempoAEliminar(null)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-danger">
+              <AlertCircle size={22} color="var(--color-danger)" />
+              <h3>Confirmar Eliminación de Tiempo de Atención</h3>
+            </div>
+
+            <p className="modal-body-text">
+              ¿Está seguro de que desea eliminar la configuración de tiempo de atención para{' '}
+              <strong className="modal-highlight-name">
+                {tiempoAEliminar.tipo_aseguramiento}
+              </strong>{' '}
+              del profesional{' '}
+              <strong className="modal-highlight-name">
+                {profesionalSeleccionado?.nombre_completo}
+              </strong>?
+            </p>
+
+            <div className="modal-highlight-box">
+              <div className="modal-highlight-title">Registro a eliminar:</div>
+              <div className="modal-highlight-desc">
+                Tipo: {tiempoAEliminar.tipo_aseguramiento} · Duración actual: {tiempoAEliminar.duracion} minutos
+              </div>
+              <div className="modal-highlight-subdesc">
+                Al eliminar este registro, el profesional ya no tendrá un tiempo específico obligatorio para este tipo de atención en la base de datos Oracle.
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-modal-cancel"
+                onClick={() => setTiempoAEliminar(null)}
+                disabled={eliminandoTiempo}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn-modal-confirm-delete"
+                onClick={confirmarYEliminarTiempo}
+                disabled={eliminandoTiempo}
+              >
+                <Trash2 size={15} />
+                {eliminandoTiempo ? 'Eliminando en Oracle...' : 'Sí, Eliminar Tiempo'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-PACKAGE           pkgca_tkr_usuarios
+CREATE OR REPLACE PACKAGE           pkgca_tkr_usuarios
 AS  
     /*  
           Nombre       : PKGCA_TKR_USUARIOS  
@@ -547,3 +547,4 @@ AS
     ) RETURN VARCHAR2;
 
 END pkgca_tkr_usuarios;
+/

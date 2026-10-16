@@ -22,5 +22,21 @@ AS
           02/10/2025   OAVQ              1. Creación
     */
     PROCEDURE p_borrar_ausencias_x_profesional (p_id_usuario IN NUMBER);
+
+    /*
+          Nombre       : f_existe_ausencia
+          Descripción  : Función para validar si un profesional ya tiene una ausencia 
+                         registrada que se traslape o cubra un rango de fechas.
+          -----------------------------------------------------------------------
+          Control de modificaciones
+          Fecha        Efectuadas por                     Descripción
+          ----------   ---------------   ----------------------------------------
+          16/10/2026   OAVQ              1. Creación
+    */
+    FUNCTION f_existe_ausencia (
+        p_id_usuario    IN NUMBER,
+        p_fecha_inicial IN DATE,
+        p_fecha_final   IN DATE
+    ) RETURN BOOLEAN;
 END pkgca_tkr_ausencias_profesional;
 /

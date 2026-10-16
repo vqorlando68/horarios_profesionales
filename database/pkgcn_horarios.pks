@@ -56,5 +56,12 @@ AS
         p_resultado OUT CLOB
     );
 
+    -- 7. Eliminar ausencias de festivos de una vigencia personalizada si no solapa con otra vigencia personalizada
+    PROCEDURE p_eliminar_ausencias_festivos_vigencia (
+        p_id_usuario    IN NUMBER,
+        p_fecha_inicial IN DATE,
+        p_fecha_final   IN DATE
+    );
+
 END PKGCN_HORARIOS;
 /

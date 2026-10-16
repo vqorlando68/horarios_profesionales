@@ -59,9 +59,10 @@ AS
                                'url_foto'         VALUE pkgcn_profesionales.f_url_foto_profesional(u.id)
                            )
                            ORDER BY u.nombres, u.apellidos
-                       ),
-                       JSON_ARRAY()
-                   )
+                          RETURNING CLOB
+                   ),
+                       TO_CLOB('[]')
+                   ) FORMAT JSON
                    RETURNING CLOB
                )
           INTO p_json_salida
@@ -216,8 +217,9 @@ AS
                                     ELSE 8
                                 END,
                                 h.hora_desde
+                       RETURNING CLOB
                    ),
-                   JSON_ARRAY()
+                   TO_CLOB('[]')
                )
           INTO v_json_horarios
           FROM tkr_horarios_profesional h
@@ -234,8 +236,9 @@ AS
                            'fecha_final'   VALUE TO_CHAR(a.fecha_final, 'YYYY-MM-DD')
                        )
                        ORDER BY a.fecha_inicial ASC
+                       RETURNING CLOB
                    ),
-                   JSON_ARRAY()
+                   TO_CLOB('[]')
                )
           INTO v_json_ausencias
           FROM tkr_ausencias_profesional a
@@ -308,6 +311,47 @@ AS
         v_res_obj.put('datos', v_arr);
         p_resultado := v_res_obj.to_clob();
     END pr_consultar_ausencias_json;
+
+    -- 7. Eliminar ausencias de festivos de una vigencia personalizada si no solapa con otra vigencia personalizada
+    PROCEDURE p_eliminar_ausencias_festivos_vigencia (
+        p_id_usuario    IN NUMBER,
+        p_fecha_inicial IN DATE,
+        p_fecha_final   IN DATE
+    ) IS
+    BEGIN
+        IF p_id_usuario IS NULL OR p_fecha_inicial IS NULL OR p_fecha_final IS NULL THEN
+            RETURN;
+        END IF;
+
+        DELETE FROM tkr_ausencias_profesional a
+         WHERE a.id_usuario = p_id_usuario
+           -- Que caiga dentro del rango personalizado que se elimina
+           AND a.fecha_inicial >= p_fecha_inicial
+           AND a.fecha_final   <= p_fecha_final
+           -- Que sea un día festivo nacional
+           AND EXISTS (
+               SELECT 1
+                 FROM tkr_festivos f
+                WHERE f.id_pais = 1
+                  AND TRUNC(f.fecha_festivo) BETWEEN TRUNC(a.fecha_inicial) AND TRUNC(a.fecha_final)
+           )
+           -- Siempre y cuando el día no esté en otro rango personalizado para ese profesional
+           AND NOT EXISTS (
+               SELECT 1
+                 FROM tkr_horarios_profesional h
+                WHERE h.id_usuario = p_id_usuario
+                  AND h.activo = 1
+                  AND h.fecha_final IS NOT NULL
+                  -- Excluir el rango personalizado que se está borrando
+                  AND NOT (
+                      TRUNC(h.fecha_inicial) = TRUNC(p_fecha_inicial)
+                      AND TRUNC(h.fecha_final) = TRUNC(p_fecha_final)
+                  )
+                  -- El día está cubierto por este otro rango personalizado
+                  AND a.fecha_inicial <= h.fecha_final
+                  AND a.fecha_final   >= h.fecha_inicial
+           );
+    END p_eliminar_ausencias_festivos_vigencia;
 
 END PKGCN_HORARIOS;
 /

@@ -1,129 +1,253 @@
-CREATE OR REPLACE PACKAGE PKGTKR_AUSENCIAS_PROFESIONAL_DAO
+CREATE OR REPLACE PACKAGE pkgtkr_ausencias_profesional_dao
 AS
     /*
-    || =========================================================================
-    || Paquete: PKGTKR_AUSENCIAS_PROFESIONAL_DAO
-    || Propósito: Acceso a datos de la tabla TKR_AUSENCIAS_PROFESIONAL.
-    || Estándar: oracle-plsql-architecture (20 métodos oficiales)
-    || =========================================================================
+        nombre       : pkgtkr_ausencias_profesional_dao
+        descripción  : paquete primario de la tabla tkr_ausencias_profesional
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
     */
 
-    TYPE t_tkr_ausencias_profesional IS TABLE OF tkr_ausencias_profesional%ROWTYPE
+    TYPE ta_tkr_ausencias_profesional IS TABLE OF tkr_ausencias_profesional%ROWTYPE
         INDEX BY BINARY_INTEGER;
 
-    -- Compatibilidad hacia atrás
-    SUBTYPE ta_tkr_ausencias_profesional IS t_tkr_ausencias_profesional;
+    /*
+        nombre       : p_insertar
+        descripción  : procedimiento que inserta un registro de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    PROCEDURE p_insertar (pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE);
 
-    -- 1. Insertar
-    PROCEDURE p_insertar (
-        pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE
-    );
+    /*
+        nombre       : p_insertar_con_tabla
+        descripción  : procedimiento que inserta un registro de la tabla
+                       [tkr_ausencias_profesional] con una tabla pl.
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    PROCEDURE p_insertar_con_tabla (pta_tkr_ausencias_profesional IN pkgtkr_ausencias_profesional_dao.ta_tkr_ausencias_profesional);
 
-    -- 2. Insertar con tabla PL
-    PROCEDURE p_insertar_con_tabla (
-        pta_tkr_ausencias_profesional IN PKGTKR_AUSENCIAS_PROFESIONAL_DAO.t_tkr_ausencias_profesional
-    );
+    /*
+        nombre       : f_traer
+        descripción  : función que retorna un registro de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    FUNCTION f_traer (pty_id IN tkr_ausencias_profesional.id%TYPE)
+        RETURN tkr_ausencias_profesional%ROWTYPE;
 
-    -- 3. Traer por PK
-    FUNCTION f_traer (
-        pty_id IN tkr_ausencias_profesional.id%TYPE
-    ) RETURN tkr_ausencias_profesional%ROWTYPE;
+    /*
+        nombre       : p_consultar_registros
+        descripción  : procedimiento que retorna todos los registros de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    PROCEDURE p_consultar_registros (pta_tkr_ausencias_profesional OUT pkgtkr_ausencias_profesional_dao.ta_tkr_ausencias_profesional);
 
-    -- 4. Consultar todos los registros
-    PROCEDURE p_consultar_registros (
-        pta_tkr_ausencias_profesional OUT PKGTKR_AUSENCIAS_PROFESIONAL_DAO.t_tkr_ausencias_profesional
-    );
+    /*
+        nombre       : p_eliminar_rowid
+        descripción  : procedimiento que elimina un registro de la tabla
+                       [tkr_ausencias_profesional] por rowid
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    PROCEDURE p_eliminar_rowid (p_rowid IN VARCHAR2);
 
-    -- 5. Eliminar por ROWID
-    PROCEDURE p_eliminar_rowid (
-        p_rowid IN VARCHAR2
-    );
+    /*
+        nombre       : p_eliminar
+        descripción  : procedimiento que elimina un registro de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    PROCEDURE p_eliminar (pty_id IN tkr_ausencias_profesional.id%TYPE);
 
-    -- 6. Eliminar por PK
-    PROCEDURE p_eliminar (
-        pty_id IN tkr_ausencias_profesional.id%TYPE
-    );
-
-    -- 7. Eliminar todos
+    /*
+        nombre       : p_eliminar_registros
+        descripción  : procedimiento que elimina todos los registros de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
     PROCEDURE p_eliminar_registros;
 
-    -- 8. Existe por PK
-    FUNCTION f_existe (
-        pty_id IN tkr_ausencias_profesional.id%TYPE
-    ) RETURN BOOLEAN;
+    /*
+        nombre       : f_existe
+        descripción  : función que retorna si un registro existe o no de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    FUNCTION f_existe (pty_id IN tkr_ausencias_profesional.id%TYPE)
+        RETURN BOOLEAN;
 
-    -- 9. Existe y retorna registro
-    FUNCTION f_existe (
-        pty_id                        IN  tkr_ausencias_profesional.id%TYPE,
-        pro_tkr_ausencias_profesional OUT tkr_ausencias_profesional%ROWTYPE
-    ) RETURN BOOLEAN;
+    /*
+        nombre       : f_existe
+        descripción  : función que retorna si un regitro existe o no de la tabla
+                       [tkr_ausencias_profesional] con la información del registro en caso
+                       de encontrarlo
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    FUNCTION f_existe (pty_id IN tkr_ausencias_profesional.id%TYPE, pro_tkr_ausencias_profesional OUT tkr_ausencias_profesional%ROWTYPE)
+        RETURN BOOLEAN;
 
-    -- 10. Existe, retorna registro y ROWID
-    FUNCTION f_existe (
-        pty_id                        IN  tkr_ausencias_profesional.id%TYPE,
-        pro_tkr_ausencias_profesional OUT tkr_ausencias_profesional%ROWTYPE,
-        p_rowid                       OUT VARCHAR2
-    ) RETURN BOOLEAN;
+    /*
+        nombre       : f_existe
+        descripción  : función que retorna si un regitro existe o no de la tabla
+                       [tkr_ausencias_profesional] con la información del registro como el
+                       rowid en caso de encontrarlo
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    FUNCTION f_existe (pty_id IN tkr_ausencias_profesional.id%TYPE, pro_tkr_ausencias_profesional OUT tkr_ausencias_profesional%ROWTYPE, p_rowid OUT VARCHAR2)
+        RETURN BOOLEAN;
 
-    -- 11. Existe por ROWID
-    FUNCTION f_existe_rowid (
-        p_rowid IN VARCHAR2
-    ) RETURN BOOLEAN;
+    /*
+        nombre       : f_existe_rowid
+        descripción  : función que retorna si un registro existe o no de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    FUNCTION f_existe_rowid (p_rowid IN VARCHAR2)
+        RETURN BOOLEAN;
 
-    -- 12. Existe por ROWID y retorna registro
-    FUNCTION f_existe_rowid (
-        p_rowid                       IN  VARCHAR2,
-        pro_tkr_ausencias_profesional OUT tkr_ausencias_profesional%ROWTYPE
-    ) RETURN BOOLEAN;
+    /*
+        nombre       : f_existe_rowid
+        descripción  : función que retorna si un registro existe o no de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    FUNCTION f_existe_rowid (p_rowid IN VARCHAR2, pro_tkr_ausencias_profesional OUT tkr_ausencias_profesional%ROWTYPE)
+        RETURN BOOLEAN;
 
-    -- 13. Actualizar registro completo por PK en ROWTYPE
-    PROCEDURE p_actualizar (
-        pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE
-    );
+    /*
+        nombre       : p_actualizar
+        descripción  : procedimiento que actualiza un registro de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación
+    */
+    PROCEDURE p_actualizar (pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE);
 
-    -- 14. Actualizar con PK explícita
-    PROCEDURE p_actualizar (
-        pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE,
-        pty_id                        IN tkr_ausencias_profesional.id%TYPE
-    );
+    /*
+        nombre       : p_actualizar
+        descripción  : procedimiento que actualiza un registro de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    PROCEDURE p_actualizar (pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE, pty_id IN tkr_ausencias_profesional.id%TYPE);
 
-    -- 15. Actualizar por ROWID
-    PROCEDURE p_actualizar_rowid (
-        pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE,
-        p_rowid                       IN VARCHAR2
-    );
+    /*
+        nombre       : p_actualizar_rowid
+        descripción  : procedimiento que actualiza un registro de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    PROCEDURE p_actualizar_rowid (pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE, p_rowid IN VARCHAR2);
 
-    -- 16. Actualizar todos
-    PROCEDURE p_actualizar_registros (
-        pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE
-    );
+    /*
+        nombre       : p_actualizar_registros
+        descripción  : procedimiento que actualiza todos los registros de la tabla
+                       [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    PROCEDURE p_actualizar_registros (pro_tkr_ausencias_profesional IN tkr_ausencias_profesional%ROWTYPE);
 
-    -- 17. Valores por defecto
-    PROCEDURE p_valores_defecto (
-        pro_tkr_ausencias_profesional IN OUT tkr_ausencias_profesional%ROWTYPE
-    );
+    /*
+        nombre       : p_valores_defecto
+        descripción  : procedimiento que devuelve los valores por defecto de la
+                       tabla [tkr_ausencias_profesional]
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación del paquete
+    */
+    PROCEDURE p_valores_defecto (pro_tkr_ausencias_profesional IN OUT tkr_ausencias_profesional%ROWTYPE);
 
-    -- 18. Existe JSON
-    FUNCTION f_existe_json (
-        p_id                              IN  tkr_ausencias_profesional.id%TYPE,
-        p_json_tkr_ausencias_profesional  OUT CLOB
-    ) RETURN NUMBER;
-
-    -- 19. JSON por PK
-    FUNCTION f_json (
-        p_id IN tkr_ausencias_profesional.id%TYPE
-    ) RETURN VARCHAR2;
-
-    -- 20. Total páginas
-    FUNCTION f_total_paginas (
-        p_json_entrada IN CLOB
-    ) RETURN NUMBER;
-
-    -- 21. Consultar paginado
-    FUNCTION f_consultar_paginado (
-        p_pagina    IN NUMBER,
-        p_registros IN NUMBER
-    ) RETURN CLOB;
-
-END PKGTKR_AUSENCIAS_PROFESIONAL_DAO;
+    /*
+        nombre       : f_existe_json
+        descripción  : función que retorna si un regitro existe o no de la tabla
+                       [tkr_ausencias_profesional] con la información del registro en un json
+                       en caso de encontrarlo, si existe devuelve 1
+        ------------------------------------------------------------------------
+        control de modificaciones
+        fecha        efectuadas por                     descripción
+        ----------   ------------------- ---------------------------------------
+        02/10/2025   oavq                1. creación de la función
+    */
+    FUNCTION f_existe_json (p_id IN tkr_ausencias_profesional.id%TYPE, p_json_tkr_ausencias_profesional OUT CLOB)
+        RETURN NUMBER;
+    /*
+        Nombre       : f_json
+        Descripción  : Procedimiento que retorna si un json de la tabla
+                       [tkr_ausencias_profesional] con la información del registro
+        ------------------------------------------------------------------------
+        Control de modificaciones
+        Fecha        Efectuadas por                     Descripción
+        ----------   ------------------- ---------------------------------------
+        21/07/2025   TEKER                1. Creación de la función
+    */
+    FUNCTION f_json (p_id IN tkr_ausencias_profesional.id%TYPE) RETURN VARCHAR2;
+END pkgtkr_ausencias_profesional_dao;
 /

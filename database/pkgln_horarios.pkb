@@ -507,6 +507,18 @@ AS
             RAISE_APPLICATION_ERROR(-20004, 'La fecha inicial (' || TO_CHAR(v_fecha_inicial, 'YYYY-MM-DD') || ') no puede ser superior a la final (' || TO_CHAR(v_fecha_final, 'YYYY-MM-DD') || ').');
         END IF;
 
+        -- Validación de existencia previa (no duplicar ausencia si el día ya está cubierto)
+        IF pkgca_tkr_ausencias_profesional.f_existe_ausencia(v_id_usuario, v_fecha_inicial, v_fecha_final) THEN
+            v_resp_obj := JSON_OBJECT_T();
+            v_resp_obj.put('codigo', 0);
+            v_resp_obj.put('mensaje', 'El rango o día de ausencia ya se encuentra registrado previamente.');
+            v_resp_obj.put('id_usuario', v_id_usuario);
+            v_resp_obj.put('fecha_inicial', TO_CHAR(v_fecha_inicial, 'YYYY-MM-DD'));
+            v_resp_obj.put('fecha_final', TO_CHAR(v_fecha_final, 'YYYY-MM-DD'));
+            p_json_salida := v_resp_obj.to_clob();
+            RETURN;
+        END IF;
+
         -- Persistencia delegada al DAO
         vro_ausencia.id             := NULL;
         vro_ausencia.id_usuario     := v_id_usuario;
@@ -631,25 +643,31 @@ AS
         p_json_entrada IN  CLOB,
         p_json_salida  OUT CLOB
     ) IS
-        v_obj_in        JSON_OBJECT_T;
-        v_id_usuario    NUMBER(12);
-        v_str_ini       VARCHAR2(50);
-        v_str_fin       VARCHAR2(50);
-        v_fecha_inicial DATE;
-        v_fecha_final   DATE;
-        v_resp_obj      JSON_OBJECT_T;
+        v_obj_in           JSON_OBJECT_T;
+        v_id_usuario       NUMBER(12);
+        v_str_ini          VARCHAR2(50);
+        v_str_fin          VARCHAR2(50);
+        v_trabaja_festivos VARCHAR2(10);
+        v_fecha_inicial    DATE;
+        v_fecha_final      DATE;
+        v_resp_obj         JSON_OBJECT_T;
     BEGIN
         IF p_json_entrada IS NULL THEN
             RAISE_APPLICATION_ERROR(-20001, 'El payload de entrada no puede ser nulo.');
         END IF;
 
-        v_obj_in     := JSON_OBJECT_T.parse(p_json_entrada);
-        v_id_usuario := v_obj_in.get_number('id_usuario');
-        v_str_ini    := v_obj_in.get_string('fecha_inicial');
-        v_str_fin    := v_obj_in.get_string('fecha_final');
+        v_obj_in           := JSON_OBJECT_T.parse(p_json_entrada);
+        v_id_usuario       := v_obj_in.get_number('id_usuario');
+        v_str_ini          := v_obj_in.get_string('fecha_inicial');
+        v_str_fin          := v_obj_in.get_string('fecha_final');
+        v_trabaja_festivos := v_obj_in.get_string('trabaja_festivos');
 
         IF v_id_usuario IS NULL OR v_str_ini IS NULL THEN
             RAISE_APPLICATION_ERROR(-20001, 'El id_usuario y fecha_inicial son obligatorios.');
+        END IF;
+
+        IF v_trabaja_festivos IS NULL THEN
+            v_trabaja_festivos := pkgca_tkr_usuarios.f_trabaja_festivos(v_id_usuario);
         END IF;
 
         v_fecha_inicial := f_parsear_fecha(v_str_ini);
@@ -657,6 +675,15 @@ AS
             v_fecha_final := f_parsear_fecha(v_str_fin);
         ELSE
             v_fecha_final := NULL;
+        END IF;
+
+        -- Si es un horario personalizado y el usuario no labora festivos, borrar festivos de ausencias no solapados
+        IF v_fecha_final IS NOT NULL AND UPPER(TRIM(v_trabaja_festivos)) = 'N' THEN
+            PKGCN_HORARIOS.p_eliminar_ausencias_festivos_vigencia(
+                p_id_usuario    => v_id_usuario,
+                p_fecha_inicial => v_fecha_inicial,
+                p_fecha_final   => v_fecha_final
+            );
         END IF;
 
         -- Delegación a pkgca_tkr_horarios_profesional
@@ -885,3 +912,4 @@ AS
     END pr_eliminar_ausencia;
 
 END PKGLN_HORARIOS;
+/

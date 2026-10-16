@@ -1,4 +1,4 @@
-PACKAGE BODY pkgca_tkr_usuarios 
+CREATE OR REPLACE PACKAGE BODY pkgca_tkr_usuarios 
 AS
     FUNCTION f_consulta_x_usuario (p_usuario IN tkr_usuarios.usuario%TYPE, pro_tkr_usuarios OUT tkr_usuarios%ROWTYPE)
         RETURN BOOLEAN
@@ -972,3 +972,4 @@ AS
     END f_trabaja_festivos;
 
 END pkgca_tkr_usuarios;
+/

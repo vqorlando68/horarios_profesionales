@@ -326,8 +326,8 @@ AS
         DELETE FROM tkr_ausencias_profesional a
          WHERE a.id_usuario = p_id_usuario
            -- Que caiga dentro del rango personalizado que se elimina
-           AND a.fecha_inicial >= p_fecha_inicial
-           AND a.fecha_final   <= p_fecha_final
+           AND TRUNC(a.fecha_inicial) >= TRUNC(p_fecha_inicial)
+           AND TRUNC(a.fecha_final)   <= TRUNC(p_fecha_final)
            -- Que sea un día festivo nacional
            AND EXISTS (
                SELECT 1
@@ -335,7 +335,7 @@ AS
                 WHERE f.id_pais = 1
                   AND TRUNC(f.fecha_festivo) BETWEEN TRUNC(a.fecha_inicial) AND TRUNC(a.fecha_final)
            )
-           -- Siempre y cuando el día no esté en otro rango personalizado para ese profesional
+           -- Siempre y cuando el día no esté en otro rango personalizado activo que quede para ese profesional
            AND NOT EXISTS (
                SELECT 1
                  FROM tkr_horarios_profesional h
@@ -348,8 +348,8 @@ AS
                       AND TRUNC(h.fecha_final) = TRUNC(p_fecha_final)
                   )
                   -- El día está cubierto por este otro rango personalizado
-                  AND a.fecha_inicial <= h.fecha_final
-                  AND a.fecha_final   >= h.fecha_inicial
+                  AND TRUNC(a.fecha_inicial) <= TRUNC(h.fecha_final)
+                  AND TRUNC(a.fecha_final)   >= TRUNC(h.fecha_inicial)
            );
     END p_eliminar_ausencias_festivos_vigencia;
 

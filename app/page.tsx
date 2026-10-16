@@ -149,6 +149,7 @@ interface Ausencia {
   id_usuario: number;
   fecha_inicial: string;
   fecha_final: string;
+  motivo?: string;
 }
 
 const DIAS_SEMANA: Array<{ key: 'LU' | 'MA' | 'MI' | 'JU' | 'VI' | 'SA' | 'DO'; nombre: string; corto: string }> = [
@@ -299,7 +300,6 @@ export default function HorariosPage() {
   const [fechaInicial, setFechaInicial] = useState<string>(fechaHoy);
   const [fechaFinal, setFechaFinal] = useState<string>('');
   const [esIndefinido, setEsIndefinido] = useState<boolean>(true);
-  const [modoReemplazo, setModoReemplazo] = useState<number>(1); // 1 = Reemplaza todo, 0 = Adiciona
 
   // Mapa de Festivos Nacionales por Fecha (YYYY-MM-DD -> Nombre)
   const mapaFestivos = useMemo(() => {
@@ -322,7 +322,7 @@ export default function HorariosPage() {
     };
   };
 
-  // Días festivos dentro del rango seleccionado cuando tiene fecha_final
+  // Días festivos nacionales dentro del rango seleccionado cuando tiene fecha_final (excluyendo domingos)
   const festivosEnRangoSeleccionado = useMemo(() => {
     if (esIndefinido || !fechaFinal || fechaFinal < fechaInicial) return [];
     const lista: Array<{ fecha: string; nombre: string; esDomingo: boolean }> = [];
@@ -335,11 +335,12 @@ export default function HorariosPage() {
       while (d <= dFin) {
         const fStr = formatYMD(d);
         const info = esFechaFestivo(fStr);
-        if (info.esFestivo) {
+        // Solo festivos nacionales que no sean domingo
+        if (info.esFestivo && !info.esDomingo && mapaFestivos.has(fStr)) {
           lista.push({
             fecha: fStr,
             nombre: info.nombreFestivo,
-            esDomingo: info.esDomingo,
+            esDomingo: false,
           });
         }
         d.setDate(d.getDate() + 1);
@@ -913,9 +914,8 @@ export default function HorariosPage() {
       const existeHorarioBase = periodosRegistrados.some((p) => p.fecha_final === null);
       const editandoMismoHorarioBase =
         vigenciaEnEdicion && vigenciaEnEdicion.fecha_final === null;
-      const esReemplazoTotal = !vigenciaEnEdicion && modoReemplazo === 1;
 
-      if (existeHorarioBase && !editandoMismoHorarioBase && !esReemplazoTotal) {
+      if (existeHorarioBase && !editandoMismoHorarioBase) {
         notificar(
           'error',
           'El profesional ya cuenta con un Horario Base registrado (sin fecha final). Solo se permite un único Horario Base por profesional; modifique el existente o asigne una fecha final para registrarlo como Horario Personalizado.'
@@ -999,7 +999,7 @@ export default function HorariosPage() {
     try {
       const payload = {
         id_usuario: profesionalSeleccionado.id_usuario,
-        reemplazar_todo: vigenciaEnEdicion ? 0 : modoReemplazo,
+        reemplazar_todo: 0,
         reemplazar_vigencia: vigenciaEnEdicion ? 1 : 0,
         fecha_inicial_origen: vigenciaEnEdicion ? vigenciaEnEdicion.fecha_inicial : null,
         fecha_final_origen: vigenciaEnEdicion ? vigenciaEnEdicion.fecha_final : null,
@@ -1038,6 +1038,10 @@ export default function HorariosPage() {
     try {
       let ausenciasCreadas = 0;
       for (const festivo of modalAdvertenciaFestivosRango.festivos) {
+        // Solo registrar festivos que no sean domingo
+        if (festivo.esDomingo || obtenerKeyDiaSemana(festivo.fecha) === 'DO') {
+          continue;
+        }
         const yaCubierto = ausencias.some(
           (a) => festivo.fecha >= a.fecha_inicial && festivo.fecha <= a.fecha_final
         );
@@ -1176,12 +1180,46 @@ export default function HorariosPage() {
 
     setCargando(true);
     try {
+      const fechaIniElim = vigenciaAEliminar.fecha_inicial;
+      const fechaFinElim = vigenciaAEliminar.fecha_final;
+
       const params = new URLSearchParams({
         id_usuario: profesionalSeleccionado.id_usuario.toString(),
-        fecha_inicial: vigenciaAEliminar.fecha_inicial,
+        fecha_inicial: fechaIniElim,
+        trabaja_festivos: profesionalSeleccionado.trabaja_festivos || 'N',
       });
-      if (vigenciaAEliminar.fecha_final) {
-        params.append('fecha_final', vigenciaAEliminar.fecha_final);
+      if (fechaFinElim) {
+        params.append('fecha_final', fechaFinElim);
+      }
+
+      // Si es un horario personalizado y el profesional no trabaja festivos, limpiar ausencias de festivos que no solapen con otras vigencias personalizadas que quedan
+      if (fechaFinElim && (profesionalSeleccionado.trabaja_festivos || 'N') === 'N') {
+        const otrosPersonalizados = periodosRegistrados.filter(
+          (p) => p.fecha_final !== null && !(p.fecha_inicial === fechaIniElim && p.fecha_final === fechaFinElim)
+        );
+
+        const ausenciasFestivasABorrar = ausencias.filter((a) => {
+          if (!a.id) return false;
+          const dentroRango = a.fecha_inicial >= fechaIniElim && a.fecha_final <= fechaFinElim;
+          if (!dentroRango) return false;
+
+          const esFestivo = mapaFestivos.has(a.fecha_inicial) || (a.motivo && a.motivo.toLowerCase().includes('festivo'));
+          if (!esFestivo) return false;
+
+          // Verificar si el día está cubierto por algún otro personalizado que quede
+          const cubiertoPorOtro = otrosPersonalizados.some(
+            (p) => p.fecha_final && a.fecha_inicial <= p.fecha_final && a.fecha_final >= p.fecha_inicial
+          );
+          return !cubiertoPorOtro;
+        });
+
+        for (const aus of ausenciasFestivasABorrar) {
+          try {
+            await fetch(`/api/ausencias?id=${aus.id}`, { method: 'DELETE' });
+          } catch (e) {
+            console.warn(`Error eliminando ausencia festiva ${aus.id}:`, e);
+          }
+        }
       }
 
       const res = await fetch(`/api/horarios?${params.toString()}`, {
@@ -2694,7 +2732,7 @@ export default function HorariosPage() {
                       {festivosEnRangoSeleccionado.length > 0 ? (
                         <div>
                           <span style={{ color: '#F59E0B', fontWeight: 700 }}>
-                            Hay {festivosEnRangoSeleccionado.length} día(s) festivo(s) y domingo(s) dentro del rango seleccionado:
+                            Hay {festivosEnRangoSeleccionado.length} día(s) festivo(s) entre semana dentro del rango seleccionado:
                           </span>
                           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
                             {festivosEnRangoSeleccionado.map((f, idx) => (
@@ -2705,13 +2743,13 @@ export default function HorariosPage() {
                           </div>
                           {trabajaFestivosRango === 'N' && (
                             <span style={{ display: 'block', color: 'var(--color-danger)', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>
-                              • Al guardar con &quot;NO trabajará festivos&quot;, se crearán estos {festivosEnRangoSeleccionado.length} día(s) en la tabla de ausencias para bloquear la agenda.
+                              • Al guardar con &quot;NO trabajará festivos&quot;, se crearán estos {festivosEnRangoSeleccionado.length} día(s) festivo(s) en la tabla de ausencias para bloquear la agenda. (Los domingos se definen en la grilla de turnos semanales).
                             </span>
                           )}
                         </div>
                       ) : (
                         <span style={{ color: 'var(--text-secondary)' }}>
-                          No se detectaron festivos nacionales ni domingos en este rango de fechas.
+                          No se detectaron festivos nacionales entre semana en este rango de fechas.
                         </span>
                       )}
                     </div>
@@ -2940,20 +2978,11 @@ export default function HorariosPage() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                {vigenciaEnEdicion ? (
+                {vigenciaEnEdicion && (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--accent-teal)', background: 'rgba(0, 229, 163, 0.1)', padding: '6px 14px', borderRadius: 'var(--radius-xs)', border: '1px solid rgba(0, 229, 163, 0.3)' }}>
                     <Edit3 size={13} />
                     <span>Actualizando: <strong>{vigenciaEnEdicion.descripcion}</strong></span>
                   </div>
-                ) : (
-                  <label className="day-switch-toggle" style={{ fontSize: '12px' }}>
-                    <input
-                      type="checkbox"
-                      checked={modoReemplazo === 1}
-                      onChange={(e) => setModoReemplazo(e.target.checked ? 1 : 0)}
-                    />
-                    <span>Reemplazar horarios anteriores de este profesional</span>
-                  </label>
                 )}
 
                 <button

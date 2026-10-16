@@ -173,7 +173,34 @@ Elimina un registro de ausencia previamente configurado a partir de su clave pri
 
 ---
 
-## 7. Método: `p_actualizar_trabaja_festivos`
+## 7. Método: `p_eliminar_horarios_vigencia`
+
+### 7.1 Descripción Funcional en Lenguaje Natural
+Elimina de manera atómica todos los horarios correspondientes a una vigencia específica (determinada por `fecha_inicial` y opcionalmente `fecha_final`). Si se trata de un horario personalizado (`fecha_final` informada) y el profesional está configurado con `trabaja_festivos = 'N'`, invoca `PKGCN_HORARIOS.p_eliminar_ausencias_festivos_vigencia` para eliminar automáticamente los bloqueos de festivos nacionales creados para ese rango, siempre y cuando no se encuentren solapados con otras vigencias personalizadas que permanezcan activas. Posteriormente delega a `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` y confirma con `p_do_commit`.
+
+### 7.2 Decisiones y Bifurcaciones Lógicas
+1. **Validación de Identificador y Rango:** Valida que `id_usuario` y `fecha_inicial` no sean nulos (error `-20001`).
+2. **Determinación de Preferencia de Festivos:** Si `trabaja_festivos` no viene en el payload, consulta `pkgca_tkr_usuarios.f_trabaja_festivos(v_id_usuario)`.
+3. **Limpieza Condicional de Festivos en Ausencias:**
+   - Si `v_fecha_final IS NOT NULL` y `v_trabaja_festivos = 'N'`:
+     Invoca `PKGCN_HORARIOS.p_eliminar_ausencias_festivos_vigencia(v_id_usuario, v_fecha_inicial, v_fecha_final)`.
+4. **Eliminación Mono-Tabla:** Invoca `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas(v_id_usuario, v_fecha_inicial, v_fecha_final)`.
+5. **Confirmación Transaccional:** Invoca `p_do_commit('PKGLN_HORARIOS.p_eliminar_horarios_vigencia')`.
+6. **Excepciones:** `ROLLBACK`, logging forense en `tkr_errores` y relanzamiento `-20000`.
+
+### 7.3 Secuencia de Llamados y Objetos Invocados
+
+| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
+| :---: | :--- | :--- | :--- |
+| 1 | `pkgca_tkr_usuarios.f_trabaja_festivos` | Acceso No-PK Mono-Tabla (`pkgca_`) | Consulta si el usuario labora festivos si no viene en payload |
+| 2 | `PKGCN_HORARIOS.p_eliminar_ausencias_festivos_vigencia` | Casos de Negocio Multi-Tabla (`pkgcn_`) | Condicional: Limpia ausencias de festivos no solapadas con otras vigencias |
+| 3 | `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` | Acceso No-PK Mono-Tabla (`pkgca_`) | Elimina los turnos de la tabla física `tkr_horarios_profesional` |
+| 4 | `p_do_commit` | Gobierno Transaccional | Confirma la transacción en la base de datos |
+| 5 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Registra el fallo en `tkr_errores` |
+
+---
+
+## 8. Método: `p_actualizar_trabaja_festivos`
 
 ### 7.1 Descripción Funcional en Lenguaje Natural
 Actualiza la configuración de trabajo en días festivos y domingos (`trabaja_festivos` con valores `'S'` o `'N'`) para un usuario específico en `tkr_usuarios`. Opcionalmente, si el usuario pasa a `trabaja_festivos = 'N'` y se recibe la instrucción explícita `borrar_domingos = 1`, procede a eliminar de manera atómica todos los horarios previamente configurados para el día Domingo (`dia_semana = 'DO'`) de la tabla `tkr_horarios_profesional`, confirmando todos los cambios bajo una única transacción gobernada por `p_do_commit`.

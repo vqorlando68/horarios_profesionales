@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
     const payload = {
       id_usuario: body.id_usuario,
-      reemplazar_todo: body.reemplazar_todo !== undefined ? body.reemplazar_todo : 1,
+      reemplazar_todo: body.reemplazar_todo !== undefined ? body.reemplazar_todo : 0,
       reemplazar_vigencia: body.reemplazar_vigencia !== undefined ? body.reemplazar_vigencia : 0,
       fecha_inicial_origen: body.fecha_inicial_origen || null,
       fecha_final_origen: body.fecha_final_origen || null,
@@ -51,6 +51,7 @@ export async function DELETE(req: NextRequest) {
     const id_usuario = searchParams.get('id_usuario');
     const fecha_inicial = searchParams.get('fecha_inicial');
     const fecha_final = searchParams.get('fecha_final');
+    const trabaja_festivos = searchParams.get('trabaja_festivos');
 
     if (!id_usuario || !fecha_inicial) {
       return NextResponse.json(
@@ -63,6 +64,7 @@ export async function DELETE(req: NextRequest) {
       id_usuario: Number(id_usuario),
       fecha_inicial: fecha_inicial,
       fecha_final: (!fecha_final || fecha_final === 'null' || fecha_final === 'undefined') ? null : fecha_final,
+      trabaja_festivos: trabaja_festivos || null,
       codigo_traza: 'WEB_ELIMINAR_VIGENCIA_' + Date.now(),
       ip_origen: req.headers.get('x-forwarded-for') || '127.0.0.1',
     };

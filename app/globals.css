@@ -1534,6 +1534,18 @@ body {
   width: 100%;
 }
 
+/* Ocultar selector nativo de WebKit/Blink (Chrome, Edge, etc.) para evitar duplicidad de iconos */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+.date-input::-webkit-calendar-picker-indicator {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 .date-input-wrapper .date-input {
   width: 100%;
   padding-right: 40px;
@@ -2757,6 +2769,44 @@ body {
   background: #CCFBF1;
   color: #0F766E;
   border: 1px solid #5EEAD4;
+}
+
+/* Chip y borde para Horario por día (Prioridad 1) */
+.chip-pordia {
+  background: rgba(168, 85, 247, 0.16);
+  color: #D8B4FE;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+[data-theme="light"] .chip-pordia {
+  background: #F3E8FF;
+  color: #6B21A8;
+  border: 1px solid #C084FC;
+}
+
+.period-pordia {
+  border-left: 3px solid #A855F7 !important;
+}
+
+.period-pordia .registered-day-group-card {
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+[data-theme="light"] .period-pordia .registered-day-group-card {
+  background: #FFFFFF !important;
+  border-color: #E9D5FF !important;
+}
+
+.badge-pordia {
+  background: rgba(168, 85, 247, 0.15);
+  color: #D8B4FE;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+[data-theme="light"] .badge-pordia {
+  background: #FAF5FF;
+  color: #581C87;
+  border: 1px solid #D8B4FE;
 }
 
 /* Ajuste de tarjetas de día dentro de períodos con fecha final */

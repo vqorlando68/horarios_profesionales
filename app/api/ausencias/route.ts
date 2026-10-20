@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executePlsqlContract } from '@/lib/db';
+import { executePlsqlContract, limpiarMensajeErrorOracle } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         codigo: -20000,
-        mensaje: error.message || 'Error al registrar la ausencia en Oracle.',
+        mensaje: limpiarMensajeErrorOracle(error.message || 'Error al registrar la ausencia en el Sistema.'),
       },
       { status: 500 }
     );
@@ -65,7 +65,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json(
       {
         codigo: -20000,
-        mensaje: error.message || 'Error al eliminar la ausencia en Oracle.',
+        mensaje: limpiarMensajeErrorOracle(error.message || 'Error al eliminar la ausencia en el Sistema.'),
       },
       { status: 500 }
     );

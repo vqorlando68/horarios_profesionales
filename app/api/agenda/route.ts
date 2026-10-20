@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executePlsqlContract } from '@/lib/db';
+import { executePlsqlContract, limpiarMensajeErrorOracle } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(
       {
         codigo: -20000,
-        mensaje: error.message || 'Error al consultar la agenda en Oracle.',
+        mensaje: limpiarMensajeErrorOracle(error.message || 'Error al consultar la agenda en el Sistema.'),
       },
       { status: 500 }
     );

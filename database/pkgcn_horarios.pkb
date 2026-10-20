@@ -90,16 +90,39 @@ AS
         v_conteo    NUMBER := 0;
         v_fin_nuevo DATE;
     BEGIN
-        -- Regla de Negocio: Los horarios sin fecha_final (Horario Base) no realizan validaciones
-        -- de traslape contra los horarios con fecha_final (Horarios Personalizados).
-        -- Para el Horario Base solo se controla que exista uno solo por profesional (vía unicidad).
+        -- Regla de Negocio y Jerarquía de Prioridad:
+        -- 1) Horario por día (p_fecha_inicial = p_fecha_final): Prioridad 1
+        -- 2) Horario Personalizado (p_fecha_inicial <> p_fecha_final): Prioridad 2
+        -- 3) Horario Base (fecha_final IS NULL): Prioridad 3
+        -- Los horarios sin fecha_final (Horario Base) no realizan validaciones de traslape contra fecha_final.
         IF p_fecha_final IS NULL THEN
             RETURN FALSE;
         END IF;
 
         v_fin_nuevo := p_fecha_final;
 
-        -- Para horarios personalizados (con fecha_final), solo se valida traslape contra otros horarios personalizados
+        -- 1. Si es Horario por día (fecha inicial igual a fecha final):
+        -- Solo se valida traslape contra otros Horarios por día en esa misma fecha exacta.
+        IF TRUNC(p_fecha_inicial) = TRUNC(v_fin_nuevo) THEN
+            SELECT COUNT(*)
+              INTO v_conteo
+              FROM tkr_horarios_profesional h
+             WHERE h.id_usuario = p_id_usuario
+               AND h.dia_semana = UPPER(TRIM(p_dia_semana))
+               AND h.activo = 1
+               AND (p_id_horario_excluir IS NULL OR h.id <> p_id_horario_excluir)
+               AND h.fecha_final IS NOT NULL
+               AND TRUNC(h.fecha_inicial) = TRUNC(h.fecha_final)
+               AND TRUNC(h.fecha_inicial) = TRUNC(p_fecha_inicial)
+               -- Intersección de horas
+               AND p_hora_desde < h.hora_hasta
+               AND p_hora_hasta > h.hora_desde;
+
+            RETURN (v_conteo > 0);
+        END IF;
+
+        -- 2. Si es Horario Personalizado (rango fecha inicial <> fecha final):
+        -- Solo se valida traslape contra otros Horarios Personalizados de rango
         SELECT COUNT(*)
           INTO v_conteo
           FROM tkr_horarios_profesional h
@@ -108,9 +131,10 @@ AS
            AND h.activo = 1
            AND (p_id_horario_excluir IS NULL OR h.id <> p_id_horario_excluir)
            AND h.fecha_final IS NOT NULL
+           AND TRUNC(h.fecha_inicial) <> TRUNC(h.fecha_final)
            -- 1. Intersección de rangos de fechas (vigencia)
-           AND p_fecha_inicial <= h.fecha_final
-           AND v_fin_nuevo     >= h.fecha_inicial
+           AND TRUNC(p_fecha_inicial) <= TRUNC(h.fecha_final)
+           AND TRUNC(v_fin_nuevo)     >= TRUNC(h.fecha_inicial)
            -- 2. Intersección de rangos de horas dentro del mismo día
            AND p_hora_desde < h.hora_hasta
            AND p_hora_hasta > h.hora_desde;

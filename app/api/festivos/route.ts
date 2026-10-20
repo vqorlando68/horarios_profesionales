@@ -32,7 +32,7 @@ export async function GET() {
     return NextResponse.json(
       {
         codigo: -20000,
-        mensaje: limpiarMensajeErrorOracle(error.message || 'Error al consultar festivos en Oracle.'),
+        mensaje: limpiarMensajeErrorOracle(error.message || 'Error al consultar festivos en el Sistema.'),
         festivos: [],
       },
       { status: 500 }

@@ -289,6 +289,17 @@ export default function HorariosPage() {
     fechaFinal: string;
   } | null>(null);
 
+  // Estado para Horario por Día (fecha inicial igual a fecha final)
+  const [esHorarioPorDia, setEsHorarioPorDia] = useState<boolean>(false);
+
+  // Modal de advertencia cuando se intenta guardar un Horario por Día en Festivo/Domingo y trabaja_festivos === 'N'
+  const [modalAdvertenciaFestivoDia, setModalAdvertenciaFestivoDia] = useState<{
+    fecha: string;
+    nombreFestivo: string;
+    esDomingo: boolean;
+    listaHorariosAplanada: any[];
+  } | null>(null);
+
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [guardandoFranjas, setGuardandoFranjas] = useState(false);
@@ -425,7 +436,7 @@ export default function HorariosPage() {
     }
   };
 
-  // Limpiar residuos técnicos de Oracle para el usuario final
+  // Limpiar residuos técnicos de la base de datos para el usuario final
   const sanitizarMensaje = (msg: string) => {
     if (!msg) return 'Ocurrió un error en la operación.';
     const limpio = msg
@@ -434,6 +445,7 @@ export default function HorariosPage() {
       .replace(/ORA-06512:\s*at\s+line\s+\d+/gi, '')
       .replace(/ORA-06512:\s*at\s+[^\n]+/gi, '')
       .replace(/ORA-\d{5}:\s*/gi, '')
+      .replace(/Oracle/gi, 'Sistema')
       .replace(/\s+/g, ' ')
       .trim();
     return limpio || msg;
@@ -501,7 +513,7 @@ export default function HorariosPage() {
       }
     } catch (err: any) {
       console.warn('Error al cargar profesionales:', err);
-      notificar('error', 'Error al consultar profesionales desde Oracle DB.');
+      notificar('error', 'Error al consultar profesionales desde el Sistema.');
     } finally {
       setCargando(false);
     }
@@ -564,7 +576,7 @@ export default function HorariosPage() {
       });
       const data = await res.json();
       if (data && data.codigo === 0) {
-        notificar('success', `¡Tiempo de atención para ${t.tipo_aseguramiento} guardado exitosamente en Oracle DB!`);
+        notificar('success', `¡Tiempo de atención para ${t.tipo_aseguramiento} guardado exitosamente en el Sistema!`);
         await cargarTiemposAtencion(profesionalSeleccionado.id_usuario);
       } else {
         notificar('error', data.mensaje || 'Error al guardar.');
@@ -602,7 +614,7 @@ export default function HorariosPage() {
       });
       const data = await res.json();
       if (data && data.codigo === 0) {
-        notificar('success', '¡Tiempos de atención guardados exitosamente en Oracle DB!');
+        notificar('success', '¡Tiempos de atención guardados exitosamente en el Sistema!');
         await cargarTiemposAtencion(profesionalSeleccionado.id_usuario);
       } else {
         notificar('error', data.mensaje || 'Error al guardar los tiempos de atención.');
@@ -624,7 +636,7 @@ export default function HorariosPage() {
       );
       const data = await res.json();
       if (data && data.codigo === 0) {
-        notificar('success', `Tiempo de atención para ${tiempoAEliminar.tipo_aseguramiento} eliminado exitosamente de Oracle DB.`);
+        notificar('success', `Tiempo de atención para ${tiempoAEliminar.tipo_aseguramiento} eliminado exitosamente del Sistema.`);
         setTiempoAEliminar(null);
         await cargarTiemposAtencion(profesionalSeleccionado.id_usuario);
       } else {
@@ -736,7 +748,7 @@ export default function HorariosPage() {
           }));
 
           if (borrarDomingos) {
-            notificar('success', 'Configuración actualizada: Se borraron los horarios del domingo en Oracle.');
+            notificar('success', 'Configuración actualizada: Se borraron los horarios del domingo en el Sistema.');
             await seleccionarProfesional(profActualizado);
           } else {
             notificar('success', 'Configuración guardada: El profesional no labora festivos ni domingos.');
@@ -763,8 +775,45 @@ export default function HorariosPage() {
 
 
   // Manejadores de Días y Turnos
+  // Helper para activar únicamente el día seleccionado cuando está activo 'Horario por día'
+  const aplicarDiaUnico = (fechaStr: string) => {
+    if (!fechaStr) return;
+    const diaKey = obtenerKeyDiaSemana(fechaStr);
+    setDiasConfig((prev) => {
+      const nuevo: Record<string, DiaConfig> = {};
+      DIAS_SEMANA.forEach((d) => {
+        if (d.key === diaKey) {
+          nuevo[d.key] = {
+            activo: true,
+            turnos: prev[d.key]?.turnos && prev[d.key].turnos.length > 0
+              ? prev[d.key].turnos
+              : [{ idTemp: `${d.key}_pordia_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00' }],
+          };
+        } else {
+          nuevo[d.key] = {
+            activo: false,
+            turnos: prev[d.key]?.turnos || [],
+          };
+        }
+      });
+      return nuevo;
+    });
+  };
+
   const toggleDia = (diaKey: string) => {
+    if (esHorarioPorDia) {
+      const diaKeyCorrespondiente = fechaInicial ? obtenerKeyDiaSemana(fechaInicial) : null;
+      if (diaKey !== diaKeyCorrespondiente) {
+        notificar(
+          'error',
+          `En Horario por día solo está habilitado el día correspondiente a la fecha (${MAPA_ORDEN_DIAS[diaKeyCorrespondiente || '']?.nombre || 'seleccionada'}).`
+        );
+        return;
+      }
+    }
+
     const domingoBloqueado =
+      !esHorarioPorDia &&
       diaKey === 'DO' &&
       (esIndefinido || !fechaFinal
         ? profesionalSeleccionado?.trabaja_festivos === 'N'
@@ -788,7 +837,19 @@ export default function HorariosPage() {
   };
 
   const agregarTurno = (diaKey: string) => {
+    if (esHorarioPorDia) {
+      const diaKeyCorrespondiente = fechaInicial ? obtenerKeyDiaSemana(fechaInicial) : null;
+      if (diaKey !== diaKeyCorrespondiente) {
+        notificar(
+          'error',
+          `En Horario por día solo se pueden agregar turnos al día ${MAPA_ORDEN_DIAS[diaKeyCorrespondiente || '']?.nombre || 'seleccionado'}.`
+        );
+        return;
+      }
+    }
+
     const domingoBloqueado =
+      !esHorarioPorDia &&
       diaKey === 'DO' &&
       (esIndefinido || !fechaFinal
         ? profesionalSeleccionado?.trabaja_festivos === 'N'
@@ -899,17 +960,19 @@ export default function HorariosPage() {
     }
 
     if (!fechaInicial) {
-      notificar('error', 'La fecha inicial del rango de vigencia es obligatoria.');
+      notificar('error', esHorarioPorDia ? 'El día del horario es obligatorio.' : 'La fecha inicial del rango de vigencia es obligatoria.');
       return;
     }
 
-    if (!esIndefinido && fechaFinal && fechaFinal < fechaInicial) {
+    const fechaFinalEfectiva = esHorarioPorDia ? fechaInicial : (esIndefinido ? '' : fechaFinal);
+
+    if (!esHorarioPorDia && !esIndefinido && fechaFinalEfectiva && fechaFinalEfectiva < fechaInicial) {
       notificar('error', 'La fecha final no puede ser menor a la fecha inicial.');
       return;
     }
 
     // Validación de unicidad de Horario Base: Solo 1 horario sin fecha final por profesional
-    const esHorarioBaseAGuardar = esIndefinido || !fechaFinal;
+    const esHorarioBaseAGuardar = !esHorarioPorDia && (esIndefinido || !fechaFinalEfectiva);
     if (esHorarioBaseAGuardar) {
       const existeHorarioBase = periodosRegistrados.some((p) => p.fecha_final === null);
       const editandoMismoHorarioBase =
@@ -933,7 +996,14 @@ export default function HorariosPage() {
       fecha_final: string | null;
     }> = [];
 
+    const diaKeyUnico = esHorarioPorDia ? obtenerKeyDiaSemana(fechaInicial) : null;
+
     for (const dia of DIAS_SEMANA) {
+      // Si es horario por día, únicamente se toma en cuenta el día de la semana correspondiente a esa fecha
+      if (esHorarioPorDia && dia.key !== diaKeyUnico) {
+        continue;
+      }
+
       const conf = diasConfig[dia.key];
       if (conf.activo && conf.turnos.length > 0) {
         for (const t of conf.turnos) {
@@ -946,24 +1016,45 @@ export default function HorariosPage() {
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
             fecha_inicial: fechaInicial,
-            fecha_final: esIndefinido || !fechaFinal ? null : fechaFinal,
+            fecha_final: esHorarioBaseAGuardar ? null : fechaFinalEfectiva,
           });
         }
       }
     }
 
     if (listaHorariosAplanada.length === 0) {
-      notificar('error', 'No hay horarios configurados en ningún día para este rango de fecha.');
+      notificar(
+        'error',
+        esHorarioPorDia
+          ? `Debe configurar al menos un turno para el día ${MAPA_ORDEN_DIAS[diaKeyUnico!]?.nombre || diaKeyUnico}.`
+          : 'No hay horarios configurados en ningún día para este rango de fecha.'
+      );
       return;
     }
 
-    // Intercepción de Festivos: Si el horario tiene fecha final y el usuario indicó que NO trabajará festivos
-    if (!esIndefinido && fechaFinal && trabajaFestivosRango === 'N') {
+    // Advertencia Horario por día: si la persona tiene marcado que no trabaja domingos y festivos y el día es festivo
+    if (esHorarioPorDia) {
+      const personaNoTrabajaFestivos = profesionalSeleccionado.trabaja_festivos === 'N';
+      const infoFestivo = esFechaFestivo(fechaInicial);
+
+      if (personaNoTrabajaFestivos && infoFestivo.esFestivo) {
+        setModalAdvertenciaFestivoDia({
+          fecha: fechaInicial,
+          nombreFestivo: infoFestivo.nombreFestivo || (infoFestivo.esDomingo ? 'Domingo' : 'Festivo Nacional'),
+          esDomingo: infoFestivo.esDomingo,
+          listaHorariosAplanada,
+        });
+        return;
+      }
+    }
+
+    // Intercepción de Festivos para Horarios Personalizados (rango de fechas): Si usuario indicó NO trabajar festivos
+    if (!esHorarioPorDia && !esIndefinido && fechaFinalEfectiva && trabajaFestivosRango === 'N') {
       if (festivosEnRangoSeleccionado.length > 0) {
         setModalAdvertenciaFestivosRango({
           festivos: festivosEnRangoSeleccionado,
           fechaInicial,
-          fechaFinal,
+          fechaFinal: fechaFinalEfectiva,
         });
         return;
       }
@@ -976,10 +1067,15 @@ export default function HorariosPage() {
   const persistirHorarios = async (horariosAplanados?: any[]) => {
     if (!profesionalSeleccionado) return;
 
+    const fechaFinalEfectiva = esHorarioPorDia ? fechaInicial : (esIndefinido ? '' : fechaFinal);
+    const esHorarioBaseAGuardar = !esHorarioPorDia && (esIndefinido || !fechaFinalEfectiva);
+    const diaKeyUnico = esHorarioPorDia ? obtenerKeyDiaSemana(fechaInicial) : null;
+
     let lista = horariosAplanados;
     if (!lista || lista.length === 0) {
       lista = [];
       for (const dia of DIAS_SEMANA) {
+        if (esHorarioPorDia && dia.key !== diaKeyUnico) continue;
         const conf = diasConfig[dia.key];
         if (conf.activo && conf.turnos.length > 0) {
           for (const t of conf.turnos) {
@@ -988,7 +1084,7 @@ export default function HorariosPage() {
               hora_desde: t.hora_desde,
               hora_hasta: t.hora_hasta,
               fecha_inicial: fechaInicial,
-              fecha_final: esIndefinido || !fechaFinal ? null : fechaFinal,
+              fecha_final: esHorarioBaseAGuardar ? null : fechaFinalEfectiva,
             });
           }
         }
@@ -1015,8 +1111,10 @@ export default function HorariosPage() {
       const data = await res.json();
       if (data && data.codigo === 0) {
         const msjExito = vigenciaEnEdicion
-          ? `¡Vigencia (${vigenciaEnEdicion.descripcion}) actualizada exitosamente en Oracle DB!`
-          : '¡Horarios para el rango guardados exitosamente en Oracle DB!';
+          ? `¡Vigencia (${vigenciaEnEdicion.descripcion}) actualizada exitosamente en el Sistema!`
+          : esHorarioPorDia
+          ? `¡Horario por día (${fechaInicial}) guardado exitosamente en el Sistema!`
+          : '¡Horarios para el rango guardados exitosamente en el Sistema!';
         notificar('success', msjExito);
         setVigenciaEnEdicion(null);
         await seleccionarProfesional(profesionalSeleccionado);
@@ -1254,6 +1352,8 @@ export default function HorariosPage() {
     }>;
   }) => {
     // 1. Cargar las fechas en el formulario del Paso 1
+    const esPorDia = Boolean(periodo.fecha_final) && periodo.fecha_inicial === periodo.fecha_final;
+    setEsHorarioPorDia(esPorDia);
     setFechaInicial(periodo.fecha_inicial);
     if (periodo.fecha_final) {
       setFechaFinal(periodo.fecha_final);
@@ -1267,9 +1367,11 @@ export default function HorariosPage() {
     setVigenciaEnEdicion({
       fecha_inicial: periodo.fecha_inicial,
       fecha_final: periodo.fecha_final,
-      descripcion: periodo.fecha_final
-        ? `del ${periodo.fecha_inicial} al ${periodo.fecha_final}`
-        : `del ${periodo.fecha_inicial} en adelante (Indefinido)`,
+      descripcion: !periodo.fecha_final
+        ? `Horario Base del ${periodo.fecha_inicial} (Indefinido)`
+        : esPorDia
+        ? `Horario por día: ${periodo.fecha_inicial}`
+        : `Horario Personalizado del ${periodo.fecha_inicial} al ${periodo.fecha_final}`,
     });
 
     // 2. Mapear días y turnos en el formulario del Paso 2
@@ -1284,9 +1386,21 @@ export default function HorariosPage() {
     }
 
     const nuevaConfigDias: Record<string, DiaConfig> = {};
+    const diaKeyUnico = esPorDia ? obtenerKeyDiaSemana(periodo.fecha_inicial) : null;
+
     DIAS_SEMANA.forEach((dia) => {
+      // Si es horario por día, únicamente el día correspondiente está activo
+      if (esPorDia && dia.key !== diaKeyUnico) {
+        nuevaConfigDias[dia.key] = {
+          activo: false,
+          turnos: [],
+        };
+        return;
+      }
+
       // Si el profesional no trabaja festivos en esta vigencia, bloquear Domingo
       const bloquearDomingo =
+        !esPorDia &&
         dia.key === 'DO' &&
         (periodo.fecha_final
           ? !tieneDomingo && profesionalSeleccionado?.trabaja_festivos === 'N'
@@ -1326,7 +1440,9 @@ export default function HorariosPage() {
 
     notificar(
       'success',
-      `Vigencia (${periodo.fecha_inicial} → ${periodo.fecha_final || 'Indefinido'}) cargada en el editor. Puede ajustar fechas u horas y presionar "Guardar Horarios".`
+      esPorDia
+        ? `Horario por día (${periodo.fecha_inicial}) cargado en el editor. Puede ajustar horas y presionar "Guardar Horarios".`
+        : `Vigencia (${periodo.fecha_inicial} → ${periodo.fecha_final || 'Indefinido'}) cargada en el editor. Puede ajustar fechas u horas y presionar "Guardar Horarios".`
     );
 
     // Scroll suave hacia el editor
@@ -1847,29 +1963,51 @@ export default function HorariosPage() {
 
     // 2. Horario del profesional (Encima, filtrado por filtroVerHorario)
     let turnosHorario: HorarioRegistrado[] = [];
+    let tipoHorarioAplicado: 'DIA' | 'PERSONALIZADO' | 'BASE' | null = null;
+
     if (filtroVerHorario) {
-      // Prioridad 1: Vigencia con fecha_final (Horario Personalizado)
-      const turnosPersonalizados = horariosRegistrados.filter(
+      // Prioridad 1: Aplica Horario por día (fecha_inicial === fecha_final === fechaStr)
+      const turnosPorDia = horariosRegistrados.filter(
         (h) =>
           h.fecha_final !== null &&
-          fechaStr >= h.fecha_inicial &&
-          fechaStr <= h.fecha_final &&
+          h.fecha_inicial === h.fecha_final &&
+          h.fecha_inicial === fechaStr &&
           h.dia_semana === diaKey
       );
 
-      if (turnosPersonalizados.length > 0) {
-        turnosHorario = turnosPersonalizados;
+      if (turnosPorDia.length > 0) {
+        turnosHorario = turnosPorDia;
+        tipoHorarioAplicado = 'DIA';
       } else {
-        // Prioridad 2: Vigencia sin fecha_final (Horario Base)
-        // Si el profesional no labora festivos en general y es domingo, no aplica horario base
-        const noLaboraBaseFestivo = diaKey === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N';
-        if (!noLaboraBaseFestivo) {
-          turnosHorario = horariosRegistrados.filter(
-            (h) =>
-              h.fecha_final === null &&
-              fechaStr >= h.fecha_inicial &&
-              h.dia_semana === diaKey
-          );
+        // Prioridad 2: Aplica Horario Personalizado (rango fecha_inicial !== fecha_final)
+        const turnosPersonalizados = horariosRegistrados.filter(
+          (h) =>
+            h.fecha_final !== null &&
+            h.fecha_inicial !== h.fecha_final &&
+            fechaStr >= h.fecha_inicial &&
+            fechaStr <= h.fecha_final &&
+            h.dia_semana === diaKey
+        );
+
+        if (turnosPersonalizados.length > 0) {
+          turnosHorario = turnosPersonalizados;
+          tipoHorarioAplicado = 'PERSONALIZADO';
+        } else {
+          // Prioridad 3: Aplica Horario Base (sin fecha_final)
+          // Si el profesional no labora festivos en general y es domingo, no aplica horario base
+          const noLaboraBaseFestivo = diaKey === 'DO' && profesionalSeleccionado?.trabaja_festivos === 'N';
+          if (!noLaboraBaseFestivo) {
+            const turnosBase = horariosRegistrados.filter(
+              (h) =>
+                h.fecha_final === null &&
+                fechaStr >= h.fecha_inicial &&
+                h.dia_semana === diaKey
+            );
+            if (turnosBase.length > 0) {
+              turnosHorario = turnosBase;
+              tipoHorarioAplicado = 'BASE';
+            }
+          }
         }
       }
       turnosHorario.sort((a, b) => a.hora_desde.localeCompare(b.hora_desde));
@@ -1921,6 +2059,7 @@ export default function HorariosPage() {
       tieneAusenciaReal,
       noLaboraFestivo,
       turnosHorario,
+      tipoHorarioAplicado,
       franjasDia,
       esFestivo: infoFestivo.esFestivo,
       esDomingo: infoFestivo.esDomingo,
@@ -2171,7 +2310,7 @@ export default function HorariosPage() {
           <div className="brand-info">
             <h1>
               TEKER Medical Suite
-              <span className="env-tag">Oracle Cloud • Vercel Ready</span>
+              <span className="env-tag">Sistema TEKER • Vercel Ready</span>
             </h1>
             <p>Configuración de Horarios de Atención por Rango de Fechas y Ausencias</p>
           </div>
@@ -2449,25 +2588,54 @@ export default function HorariosPage() {
             <div className="registered-card-content">
               {periodosRegistrados.map((periodo, idx) => {
                 const tieneFechaFinal = Boolean(periodo.fecha_final);
+                const esPorDia = tieneFechaFinal && periodo.fecha_inicial === periodo.fecha_final;
+
+                const tipoChipClass = !tieneFechaFinal
+                  ? 'chip-indefinite'
+                  : esPorDia
+                  ? 'chip-pordia'
+                  : 'chip-finite';
+
+                const tipoBadgeClass = !tieneFechaFinal
+                  ? 'badge-indefinite'
+                  : esPorDia
+                  ? 'badge-pordia'
+                  : 'badge-finite';
+
+                const blockClass = !tieneFechaFinal
+                  ? 'period-indefinite'
+                  : esPorDia
+                  ? 'period-pordia'
+                  : 'period-finite';
+
+                const tipoTexto = !tieneFechaFinal
+                  ? 'Horario Base'
+                  : esPorDia
+                  ? 'Horario por día'
+                  : 'Horario Personalizado';
+
+                const textoTitulo = !tieneFechaFinal
+                  ? `Horario Base: ${periodo.fecha_inicial} → Indefinido`
+                  : esPorDia
+                  ? `Horario por día: ${periodo.fecha_inicial}`
+                  : `Horario Personalizado: ${periodo.fecha_inicial} → ${periodo.fecha_final}`;
 
                 return (
                   <div
                     key={idx}
-                    className={`registered-period-block ${tieneFechaFinal ? 'period-finite' : 'period-indefinite'}`}
+                    className={`registered-period-block ${blockClass}`}
                   >
                     <div className="period-badge-header">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span className={`period-badge ${tieneFechaFinal ? 'badge-finite' : 'badge-indefinite'}`}>
+                        <span className={`period-badge ${tipoBadgeClass}`}>
                           <Calendar size={13} />
-                          {tieneFechaFinal
-                            ? `Horario Personalizado: ${periodo.fecha_inicial} → ${periodo.fecha_final}`
-                            : `Horario Base: ${periodo.fecha_inicial} → Indefinido`}
+                          {textoTitulo}
                         </span>
-                        <span className={`period-type-chip ${tieneFechaFinal ? 'chip-finite' : 'chip-indefinite'}`}>
-                          {tieneFechaFinal ? 'Horario Personalizado' : 'Horario Base'}
+                        <span className={`period-type-chip ${tipoChipClass}`}>
+                          {tipoTexto}
                         </span>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                          {periodo.totalTurnos} turnos en {periodo.diasAgrupados.length} días
+                          {periodo.totalTurnos} turnos en {periodo.diasAgrupados.length} día{periodo.diasAgrupados.length > 1 ? 's' : ''}
                         </span>
                       </div>
 
@@ -2488,7 +2656,7 @@ export default function HorariosPage() {
                           type="button"
                           onClick={() => solicitarEliminacionVigencia(periodo.fecha_inicial, periodo.fecha_final)}
                           className="btn-delete-period"
-                          title="Borrar toda esta vigencia y sus horarios asociados en Oracle"
+                          title="Borrar toda esta vigencia y sus horarios asociados en el Sistema"
                         >
                           <Trash2 size={13} />
                           <span>Borrar Vigencia</span>
@@ -2589,7 +2757,7 @@ export default function HorariosPage() {
                     Modificando Vigencia Grabada ({vigenciaEnEdicion.descripcion})
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Puede ajustar fechas u horas libremente. Al guardar se actualizará este período en Oracle sin duplicar registros ni generar traslapes.
+                    Puede ajustar fechas u horas libremente. Al guardar se actualizará este período en el Sistema sin duplicar registros ni generar traslapes.
                   </div>
                 </div>
               </div>
@@ -2598,6 +2766,7 @@ export default function HorariosPage() {
                 className="btn-cancel-editing"
                 onClick={() => {
                   setVigenciaEnEdicion(null);
+                  setEsHorarioPorDia(false);
                   notificar('success', 'Modo edición cancelado. Ahora puede crear un nuevo horario independiente.');
                 }}
                 title="Cancelar modificación de esta vigencia"
@@ -2608,7 +2777,7 @@ export default function HorariosPage() {
             </div>
           )}
 
-          {/* PASO 1: SELECCIONAR EL RANGO DE FECHAS */}
+          {/* PASO 1: SELECCIONAR EL RANGO DE FECHAS O DÍA ÚNICO */}
           <section id="editor-horarios-seccion" className="master-date-card">
             <div className="master-date-header">
               <div className="master-date-title">
@@ -2617,62 +2786,44 @@ export default function HorariosPage() {
               </div>
             </div>
 
-            {/* Inputs de Fecha Inicial y Final */}
-            <div className="master-date-grid">
-              <div className="input-group">
-                <label className="input-label" style={{ color: 'var(--accent-cyan)' }}>
-                  <Calendar size={13} style={{ display: 'inline', marginRight: '6px' }} />
-                  Fecha Inicial (Obligatoria)
-                </label>
-                <div className="date-input-wrapper">
-                  <input
-                    ref={fechaInicialRef}
-                    type="date"
-                    className="date-input"
-                    value={fechaInicial}
-                    onChange={(e) => setFechaInicial(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="btn-date-picker-icon"
-                    onClick={() => abrirSelectorFecha(fechaInicialRef)}
-                    title="Abrir calendario para escoger fecha inicial"
-                  >
-                    <Calendar size={16} />
-                  </button>
-                </div>
-              </div>
+            {/* Selector de Modo: Horario por Día / Horario Base o Personalizado */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                flexWrap: 'wrap',
+                marginBottom: '16px',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-sm)',
+                background: esHorarioPorDia ? 'rgba(168, 85, 247, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                border: esHorarioPorDia ? '1px solid rgba(168, 85, 247, 0.35)' : '1px solid var(--border-subtle)',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              <label className="day-switch-toggle" style={{ cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={esHorarioPorDia}
+                  onChange={(e) => {
+                    const activar = e.target.checked;
+                    setEsHorarioPorDia(activar);
+                    if (activar) {
+                      setEsIndefinido(false);
+                      if (fechaInicial) {
+                        setFechaFinal(fechaInicial);
+                        aplicarDiaUnico(fechaInicial);
+                      }
+                    }
+                  }}
+                />
+                <span style={{ fontWeight: 700, color: esHorarioPorDia ? '#D8B4FE' : 'var(--text-primary)', fontSize: '13px' }}>
+                  Ingresar Horario por día (Aplica exclusivamente para una sola fecha - Prioridad 1)
+                </span>
+              </label>
 
-              <div className="input-group">
-                <label className="input-label">
-                  <CalendarRange size={13} style={{ display: 'inline', marginRight: '6px' }} />
-                  Fecha Final (Vigencia)
-                </label>
-                <div className="date-input-wrapper">
-                  <input
-                    ref={fechaFinalRef}
-                    type="date"
-                    className="date-input"
-                    value={fechaFinal}
-                    disabled={esIndefinido}
-                    placeholder={esIndefinido ? 'Indefinido' : ''}
-                    onChange={(e) => setFechaFinal(e.target.value)}
-                    style={{ opacity: esIndefinido ? 0.4 : 1 }}
-                  />
-                  <button
-                    type="button"
-                    className="btn-date-picker-icon"
-                    onClick={() => abrirSelectorFecha(fechaFinalRef)}
-                    disabled={esIndefinido}
-                    title={esIndefinido ? 'Habilite fecha final desmarcando indefinido' : 'Abrir calendario para escoger fecha final'}
-                  >
-                    <Calendar size={16} />
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '10px' }}>
-                <label className="day-switch-toggle">
+              {!esHorarioPorDia && (
+                <label className="day-switch-toggle" style={{ cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={esIndefinido}
@@ -2681,33 +2832,154 @@ export default function HorariosPage() {
                       if (e.target.checked) setFechaFinal('');
                     }}
                   />
-                  <span>Vigencia Indefinida (aplica permanentemente)</span>
+                  <span style={{ fontSize: '12.5px' }}>Vigencia Indefinida (Horario Base permanente)</span>
                 </label>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  Si se marca, el horario regirá a partir de la fecha inicial sin límite.
-                </span>
-              </div>
+              )}
+            </div>
+
+            {/* Inputs de Fecha */}
+            <div className="master-date-grid">
+              {esHorarioPorDia ? (
+                /* MODO HORARIO POR DÍA: SOLAMENTE PIDE EL DÍA */
+                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="input-label" style={{ color: '#D8B4FE', fontWeight: 700 }}>
+                    <Calendar size={14} style={{ display: 'inline', marginRight: '6px' }} />
+                    Día del Horario (Fecha Única)
+                  </label>
+                  <div className="date-input-wrapper">
+                    <input
+                      ref={fechaInicialRef}
+                      type="date"
+                      className="date-input"
+                      value={fechaInicial}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFechaInicial(val);
+                        setFechaFinal(val);
+                        aplicarDiaUnico(val);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-date-picker-icon"
+                      onClick={() => abrirSelectorFecha(fechaInicialRef)}
+                      title="Abrir calendario para escoger fecha del día"
+                    >
+                      <Calendar size={16} />
+                    </button>
+                  </div>
+                  {fechaInicial && (
+                    <div style={{ marginTop: '8px', fontSize: '12.5px', color: '#D8B4FE', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle2 size={14} color="#A855F7" />
+                      <span>
+                        Día de la semana: <strong>{MAPA_ORDEN_DIAS[obtenerKeyDiaSemana(fechaInicial)]?.nombre} ({obtenerKeyDiaSemana(fechaInicial)})</strong>. En el <strong>Paso 2</strong> solo se habilitará este día para ingresar los rangos de horas.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* MODO NORMAL: FECHA INICIAL Y FECHA FINAL */
+                <>
+                  <div className="input-group">
+                    <label className="input-label" style={{ color: 'var(--accent-cyan)' }}>
+                      <Calendar size={13} style={{ display: 'inline', marginRight: '6px' }} />
+                      Fecha Inicial (Obligatoria)
+                    </label>
+                    <div className="date-input-wrapper">
+                      <input
+                        ref={fechaInicialRef}
+                        type="date"
+                        className="date-input"
+                        value={fechaInicial}
+                        onChange={(e) => setFechaInicial(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn-date-picker-icon"
+                        onClick={() => abrirSelectorFecha(fechaInicialRef)}
+                        title="Abrir calendario para escoger fecha inicial"
+                      >
+                        <Calendar size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="input-group">
+                    <label className="input-label">
+                      <CalendarRange size={13} style={{ display: 'inline', marginRight: '6px' }} />
+                      Fecha Final (Vigencia)
+                    </label>
+                    <div className="date-input-wrapper">
+                      <input
+                        ref={fechaFinalRef}
+                        type="date"
+                        className="date-input"
+                        value={fechaFinal}
+                        disabled={esIndefinido}
+                        placeholder={esIndefinido ? 'Indefinido' : ''}
+                        onChange={(e) => setFechaFinal(e.target.value)}
+                        style={{ opacity: esIndefinido ? 0.4 : 1 }}
+                      />
+                      <button
+                        type="button"
+                        className="btn-date-picker-icon"
+                        onClick={() => abrirSelectorFecha(fechaFinalRef)}
+                        disabled={esIndefinido}
+                        title={esIndefinido ? 'Habilite fecha final desmarcando indefinido' : 'Abrir calendario para escoger fecha final'}
+                      >
+                        <Calendar size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '10px' }}>
+                    <label className="day-switch-toggle">
+                      <input
+                        type="checkbox"
+                        checked={esIndefinido}
+                        onChange={(e) => {
+                          setEsIndefinido(e.target.checked);
+                          if (e.target.checked) setFechaFinal('');
+                        }}
+                      />
+                      <span>Vigencia Indefinida (aplica permanentemente)</span>
+                    </label>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Si se marca, el horario regirá a partir de la fecha inicial sin límite.
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Banner resumen del rango */}
             <div className="range-summary-banner">
-              <Info size={16} color="var(--accent-cyan)" />
+              <Info size={16} color={esHorarioPorDia ? '#A855F7' : 'var(--accent-cyan)'} />
               <span>
-                Los horarios configurados en el <strong>Paso 2</strong> aplicarán desde el{' '}
-                <strong>{fechaInicial || 'fecha no definida'}</strong>{' '}
-                {esIndefinido || !fechaFinal ? (
-                  <strong>en adelante de manera indefinida</strong>
+                {esHorarioPorDia ? (
+                  <>
+                    Los horarios configurados en el <strong>Paso 2</strong> aplicarán exclusivamente para el día{' '}
+                    <strong>{fechaInicial || 'fecha no definida'} ({fechaInicial ? MAPA_ORDEN_DIAS[obtenerKeyDiaSemana(fechaInicial)]?.nombre : ''})</strong> con <strong>Prioridad 1</strong> sobre cualquier horario personalizado o base.
+                  </>
                 ) : (
                   <>
-                    hasta el <strong>{fechaFinal}</strong>
+                    Los horarios configurados en el <strong>Paso 2</strong> aplicarán desde el{' '}
+                    <strong>{fechaInicial || 'fecha no definida'}</strong>{' '}
+                    {esIndefinido || !fechaFinal ? (
+                      <strong>en adelante de manera indefinida</strong>
+                    ) : (
+                      <>
+                        hasta el <strong>{fechaFinal}</strong>
+                      </>
+                    )}
+                    .
                   </>
                 )}
-                .
               </span>
             </div>
 
-            {/* Pregunta si trabajará festivos en este rango específico con fecha_final */}
-            {!esIndefinido && Boolean(fechaFinal) && (
+            {/* Pregunta si trabajará festivos en este rango específico con fecha_final (solo para Horario Personalizado) */}
+            {!esHorarioPorDia && !esIndefinido && Boolean(fechaFinal) && (
               <div
                 style={{
                   marginTop: '16px',
@@ -2803,7 +3075,12 @@ export default function HorariosPage() {
             <div className="week-grid">
               {DIAS_SEMANA.map((dia) => {
                 const conf = diasConfig[dia.key];
+                const diaKeyCorrespondiente = fechaInicial ? obtenerKeyDiaSemana(fechaInicial) : null;
+                const esDiaDeshabilitadoPorModoDia = esHorarioPorDia && dia.key !== diaKeyCorrespondiente;
+                const esDiaActivoPorModoDia = esHorarioPorDia && dia.key === diaKeyCorrespondiente;
+
                 const esDomingoBloqueado =
+                  !esHorarioPorDia &&
                   dia.key === 'DO' &&
                   (esIndefinido || !fechaFinal
                     ? profesionalSeleccionado?.trabaja_festivos === 'N'
@@ -2812,18 +3089,48 @@ export default function HorariosPage() {
                 return (
                   <div
                     key={dia.key}
-                    className={`day-column ${!conf.activo ? 'inactive' : ''} ${
+                    className={`day-column ${!conf.activo || esDiaDeshabilitadoPorModoDia ? 'inactive' : ''} ${
                       esDomingoBloqueado ? 'holiday-disabled' : ''
-                    }`}
+                    } ${esDiaActivoPorModoDia ? 'day-column-pordia-active' : ''}`}
+                    style={esDiaActivoPorModoDia ? { borderColor: 'rgba(168, 85, 247, 0.5)', background: 'rgba(168, 85, 247, 0.04)' } : undefined}
                   >
                     {/* Header del Día */}
                     <div className="day-header">
                       <div className="day-title-box">
-                        <span className="day-badge">{dia.key}</span>
+                        <span className="day-badge" style={esDiaActivoPorModoDia ? { background: 'linear-gradient(135deg, #A855F7, #7C3AED)', color: '#FFFFFF' } : undefined}>
+                          {dia.key}
+                        </span>
                         <span className="day-name">{dia.nombre}</span>
                       </div>
 
-                      {esDomingoBloqueado ? (
+                      {esDiaDeshabilitadoPorModoDia ? (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--text-muted)',
+                            fontWeight: 600,
+                            background: 'rgba(255, 255, 255, 0.04)',
+                            padding: '2px 8px',
+                            borderRadius: 'var(--radius-xs)',
+                          }}
+                        >
+                          No aplica
+                        </span>
+                      ) : esDiaActivoPorModoDia ? (
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            color: '#D8B4FE',
+                            fontWeight: 700,
+                            background: 'rgba(168, 85, 247, 0.25)',
+                            padding: '2px 8px',
+                            borderRadius: 'var(--radius-xs)',
+                            border: '1px solid rgba(168, 85, 247, 0.4)',
+                          }}
+                        >
+                          Día Habilitado
+                        </span>
+                      ) : esDomingoBloqueado ? (
                         <span
                           style={{
                             fontSize: '11px',
@@ -2857,7 +3164,17 @@ export default function HorariosPage() {
 
                     {/* Cuerpo del Día */}
                     <div className="day-body">
-                      {esDomingoBloqueado ? (
+                      {esDiaDeshabilitadoPorModoDia ? (
+                        <div className="locked-day-banner" style={{ background: 'rgba(255, 255, 255, 0.02)', borderColor: 'var(--border-subtle)', minHeight: '130px' }}>
+                          <Info size={18} color="var(--text-muted)" />
+                          <strong style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>No aplica</strong>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.3 }}>
+                            {diaKeyCorrespondiente
+                              ? `En Horario por día solo se habilita ${MAPA_ORDEN_DIAS[diaKeyCorrespondiente]?.nombre}.`
+                              : 'Seleccione una fecha en el Paso 1.'}
+                          </span>
+                        </div>
+                      ) : esDomingoBloqueado ? (
                         <div className="locked-day-banner">
                           <AlertCircle size={20} color="var(--color-danger)" />
                           <strong>Domingo Bloqueado</strong>
@@ -2994,7 +3311,7 @@ export default function HorariosPage() {
                 >
                   <Save size={16} className={guardando ? 'spinner' : ''} />
                   {guardando
-                    ? 'Guardando en Oracle...'
+                    ? 'Guardando en el Sistema...'
                     : vigenciaEnEdicion
                     ? 'Actualizar Vigencia'
                     : 'Guardar Horarios'}
@@ -3095,7 +3412,7 @@ export default function HorariosPage() {
                               type="button"
                               onClick={() => solicitarEliminacionFranjaVigencia(periodo.fecha_inicial, periodo.fecha_final)}
                               className="btn-delete-period"
-                              title="Borrar toda esta vigencia de franjas en Oracle"
+                              title="Borrar toda esta vigencia de franjas en el Sistema"
                             >
                               <Trash2 size={13} />
                               <span>Borrar Vigencia</span>
@@ -3160,7 +3477,7 @@ export default function HorariosPage() {
                     Modificando Vigencia Grabada de Franjas ({vigenciaFranjasEnEdicion.descripcion})
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Puede ajustar fechas, franjas y tipos de atención. Al guardar se actualizará este período en Oracle.
+                    Puede ajustar fechas, franjas y tipos de atención. Al guardar se actualizará este período en el Sistema.
                   </div>
                 </div>
               </div>
@@ -3537,7 +3854,7 @@ export default function HorariosPage() {
                 >
                   <Save size={16} className={guardandoFranjas ? 'spinner' : ''} />
                   {guardandoFranjas
-                    ? 'Guardando en Oracle...'
+                    ? 'Guardando en el Sistema...'
                     : vigenciaFranjasEnEdicion
                     ? 'Actualizar Vigencia'
                     : 'Guardar Franjas'}
@@ -4280,8 +4597,25 @@ export default function HorariosPage() {
                         {/* Horario Profesional */}
                         {filtroVerHorario && (
                           <div>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-teal)', marginBottom: '6px' }}>
-                              Horario del Profesional (Encima)
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent-teal)' }}>
+                                Horario del Profesional (Encima)
+                              </span>
+                              {dataDia.tipoHorarioAplicado && (
+                                <span className={`period-type-chip ${
+                                  dataDia.tipoHorarioAplicado === 'DIA'
+                                    ? 'chip-pordia'
+                                    : dataDia.tipoHorarioAplicado === 'PERSONALIZADO'
+                                    ? 'chip-finite'
+                                    : 'chip-indefinite'
+                                }`} style={{ fontSize: '10.5px', padding: '2px 8px' }}>
+                                  {dataDia.tipoHorarioAplicado === 'DIA'
+                                    ? 'Prioridad 1: Horario por día'
+                                    : dataDia.tipoHorarioAplicado === 'PERSONALIZADO'
+                                    ? 'Prioridad 2: Horario Personalizado'
+                                    : 'Prioridad 3: Horario Base'}
+                                </span>
+                              )}
                             </div>
                             {dataDia.turnosHorario.length === 0 ? (
                               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -4386,7 +4720,7 @@ export default function HorariosPage() {
                 className="btn-save-main"
                 onClick={guardarTiemposAtencion}
                 disabled={guardandoTiempos || !profesionalSeleccionado}
-                title="Guardar tiempos de atención en Oracle DB"
+                title="Guardar tiempos de atención en el Sistema"
               >
                 {guardandoTiempos ? (
                   <>
@@ -4407,7 +4741,7 @@ export default function HorariosPage() {
           {cargandoTiempos ? (
             <div className="tiempos-loading-state">
               <RefreshCw size={24} className="spin-icon" />
-              <p>Cargando configuración de tiempos desde Oracle DB...</p>
+              <p>Cargando configuración de tiempos desde el Sistema...</p>
             </div>
           ) : (
             <div className="tiempos-cards-grid">
@@ -4591,7 +4925,7 @@ export default function HorariosPage() {
                 Tipo: {tiempoAEliminar.tipo_aseguramiento} · Duración actual: {tiempoAEliminar.duracion} minutos
               </div>
               <div className="modal-highlight-subdesc">
-                Al eliminar este registro, el profesional ya no tendrá un tiempo específico obligatorio para este tipo de atención en la base de datos Oracle.
+                Al eliminar este registro, el profesional ya no tendrá un tiempo específico obligatorio para este tipo de atención en el Sistema.
               </div>
             </div>
 
@@ -4612,7 +4946,7 @@ export default function HorariosPage() {
                 disabled={eliminandoTiempo}
               >
                 <Trash2 size={15} />
-                {eliminandoTiempo ? 'Eliminando en Oracle...' : 'Sí, Eliminar Tiempo'}
+                {eliminandoTiempo ? 'Eliminando en el Sistema...' : 'Sí, Eliminar Tiempo'}
               </button>
             </div>
           </div>
@@ -4639,7 +4973,7 @@ export default function HorariosPage() {
               <div className="modal-highlight-title">Vigencia a eliminar:</div>
               <div className="modal-highlight-desc">{franjaVigenciaAEliminar.descripcion}</div>
               <div className="modal-highlight-subdesc">
-                Esta acción borrará de la base de datos Oracle todas las franjas asociadas a este rango.
+                Esta acción borrará del Sistema todas las franjas asociadas a este rango.
               </div>
             </div>
 
@@ -4660,7 +4994,7 @@ export default function HorariosPage() {
                 disabled={cargando}
               >
                 <Trash2 size={15} />
-                {cargando ? 'Eliminando en Oracle...' : 'Sí, Eliminar Franjas'}
+                {cargando ? 'Eliminando en el Sistema...' : 'Sí, Eliminar Franjas'}
               </button>
             </div>
           </div>
@@ -4687,7 +5021,7 @@ export default function HorariosPage() {
               <div className="modal-highlight-title">Vigencia a eliminar:</div>
               <div className="modal-highlight-desc">{vigenciaAEliminar.descripcion}</div>
               <div className="modal-highlight-subdesc">
-                Esta acción borrará de la base de datos Oracle todos los horarios asociados a este rango.
+                Esta acción borrará del Sistema todos los horarios asociados a este rango.
               </div>
             </div>
 
@@ -4708,7 +5042,7 @@ export default function HorariosPage() {
                 disabled={cargando}
               >
                 <Trash2 size={15} />
-                {cargando ? 'Eliminando en Oracle...' : 'Sí, Eliminar Vigencia'}
+                {cargando ? 'Eliminando en el Sistema...' : 'Sí, Eliminar Vigencia'}
               </button>
             </div>
           </div>
@@ -4785,13 +5119,13 @@ export default function HorariosPage() {
               <strong className="modal-highlight-count">
                 {modalFestivosAdvertencia.cantidadDomingos} turno(s)
               </strong>{' '}
-              registrado(s) para el día <strong>Domingo</strong> en la base de datos Oracle.
+              registrado(s) para el día <strong>Domingo</strong> en el Sistema.
             </p>
 
             <div className="modal-highlight-box">
               <div className="modal-highlight-title">¡Atención: Acción Destructiva Permanente!</div>
               <div className="modal-highlight-desc">
-                Si desmarca esta opción, todos los horarios configurados para el día domingo <strong>se borrarán permanentemente</strong> de la base de datos Oracle y no se permitirá ingresar nuevos turnos para domingos.
+                Si desmarca esta opción, todos los horarios configurados para el día domingo <strong>se borrarán permanentemente</strong> del Sistema y no se permitirá ingresar nuevos turnos para domingos.
               </div>
             </div>
 
@@ -4919,6 +5253,79 @@ export default function HorariosPage() {
               >
                 <CalendarOff size={15} />
                 {guardando ? 'Creando ausencias y guardando...' : 'Confirmar y Crear Ausencias'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal In-App de Advertencia: Horario por Día en Domingo o Festivo para profesional que no labora festivos */}
+      {modalAdvertenciaFestivoDia && (
+        <div className="modal-backdrop" onClick={() => setModalAdvertenciaFestivoDia(null)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
+            <div className="modal-header-warning" style={{ background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
+              <AlertTriangle size={24} color="#F59E0B" />
+              <h3 style={{ color: '#F59E0B' }}>
+                Advertencia: Horario por Día en {modalAdvertenciaFestivoDia.esDomingo ? 'Domingo' : 'Día Festivo'}
+              </h3>
+            </div>
+
+            <p className="modal-body-text">
+              El profesional{' '}
+              <strong className="modal-highlight-name">
+                {profesionalSeleccionado?.nombre_completo}
+              </strong>{' '}
+              tiene configurado en su perfil que <strong style={{ color: 'var(--color-danger)' }}>NO trabaja domingos ni días festivos</strong>.
+            </p>
+
+            <div
+              style={{
+                margin: '14px 0',
+                padding: '12px 16px',
+                background: 'rgba(245, 158, 11, 0.08)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid rgba(245, 158, 11, 0.25)',
+                fontSize: '13px',
+              }}
+            >
+              <div>
+                <strong>Fecha seleccionada:</strong> {modalAdvertenciaFestivoDia.fecha} (
+                {MAPA_ORDEN_DIAS[obtenerKeyDiaSemana(modalAdvertenciaFestivoDia.fecha)]?.nombre})
+              </div>
+              <div style={{ marginTop: '6px' }}>
+                <strong>Día Festivo / Motivo:</strong>{' '}
+                <span className="badge-festivo-pill" style={{ display: 'inline-block', marginLeft: '4px' }}>
+                  {modalAdvertenciaFestivoDia.nombreFestivo}
+                </span>
+              </div>
+              <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Al guardar este Horario por día, el profesional tendrá habilitada la atención exclusivamente para esta fecha con <strong>Prioridad 1</strong> sobre cualquier otra regla general.
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-modal-cancel"
+                onClick={() => setModalAdvertenciaFestivoDia(null)}
+                disabled={guardando}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn-modal-confirm-warning"
+                style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', border: 'none' }}
+                onClick={async () => {
+                  const lista = modalAdvertenciaFestivoDia.listaHorariosAplanada;
+                  setModalAdvertenciaFestivoDia(null);
+                  await persistirHorarios(lista);
+                }}
+                disabled={guardando}
+              >
+                <Save size={15} />
+                {guardando ? 'Guardando en el Sistema...' : 'Continuar y Grabar Horario por Día'}
               </button>
             </div>
           </div>

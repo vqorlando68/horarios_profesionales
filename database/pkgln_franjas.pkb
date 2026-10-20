@@ -123,6 +123,7 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
         v_hora_desde            VARCHAR2(10);
         v_hora_hasta            VARCHAR2(10);
         v_tipo_atencion         VARCHAR2(10);
+        v_modalidad             VARCHAR2(10);
         v_fecha_inicial_str     VARCHAR2(30);
         v_fecha_final_str       VARCHAR2(30);
         v_fecha_inicial         DATE;
@@ -184,6 +185,13 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
                     v_tipo_atencion := UPPER(TRIM(v_elem_franja.get_string('tipo_atencion')));
                     IF v_tipo_atencion NOT IN ('V', 'O') THEN
                         RAISE_APPLICATION_ERROR(-20012, 'Tipo de atención/aseguramiento inválido (' || v_tipo_atencion || '). Debe ser 1/V (Voluntario) o 2/O (Obligatorio).');
+                    END IF;
+                END IF;
+
+                IF v_elem_franja.has('modalidad') AND NOT v_elem_franja.get('modalidad').is_null THEN
+                    v_modalidad := UPPER(TRIM(v_elem_franja.get_string('modalidad')));
+                    IF v_modalidad IS NOT NULL AND v_modalidad <> '' AND v_modalidad NOT IN ('V', 'D') THEN
+                        RAISE_APPLICATION_ERROR(-20013, 'Modalidad de atención inválida (' || v_modalidad || '). Debe ser V (Virtual), D (Domiciliaria) o vacía/NULL (Aplica para ambas).');
                     END IF;
                 END IF;
 

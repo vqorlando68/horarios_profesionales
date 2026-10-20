@@ -62,6 +62,7 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
             fecha_inicial,
             fecha_final,
             id_tipo_aseguramiento,
+            modalidad,
             activo,
             fecha_creacion
         )
@@ -77,6 +78,10 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                    ELSE NULL
                END,
                NVL(jt.id_tipo_aseguramiento, CASE WHEN UPPER(TRIM(jt.tipo_atencion)) = 'O' THEN 2 ELSE 1 END),
+               CASE 
+                   WHEN UPPER(TRIM(jt.modalidad)) IN ('V', 'D') THEN UPPER(TRIM(jt.modalidad))
+                   ELSE NULL
+               END,
                1,
                SYSDATE
           FROM JSON_TABLE(p_json_franjas, '$.franjas[*]'
@@ -87,7 +92,8 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                        fecha_inicial VARCHAR2(20) PATH '$.fecha_inicial',
                        fecha_final   VARCHAR2(20) PATH '$.fecha_final',
                        id_tipo_aseguramiento NUMBER       PATH '$.id_tipo_aseguramiento',
-                       tipo_atencion         VARCHAR2(10) PATH '$.tipo_atencion'
+                       tipo_atencion         VARCHAR2(10) PATH '$.tipo_atencion',
+                       modalidad             VARCHAR2(10) PATH '$.modalidad'
                    )
                ) jt;
     END p_guardar_franjas_profesional;
@@ -113,6 +119,7 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                                'id_tipo_aseguramiento' VALUE NVL(h.id_tipo_aseguramiento, 1),
                                'tipo_atencion'         VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'O' ELSE 'V' END),
                                'tipo_aseguramiento'    VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'Obligatorio' ELSE 'Voluntario' END),
+                               'modalidad'             VALUE h.modalidad,
                                'activo'        VALUE h.activo
                            )
                            ORDER BY CASE h.dia_semana

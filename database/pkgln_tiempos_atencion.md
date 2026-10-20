@@ -24,6 +24,7 @@ Orquestador transaccional de dominio para la configuración, consulta y eliminac
         "id_tipo_aseguramiento": 1,
         "tipo_aseguramiento": "Voluntario",
         "duracion": 20,
+        "duracion_domiciliaria": 45,
         "configurado": 1,
         "activo": 1
       },
@@ -33,6 +34,7 @@ Orquestador transaccional de dominio para la configuración, consulta y eliminac
         "id_tipo_aseguramiento": 2,
         "tipo_aseguramiento": "Obligatorio",
         "duracion": null,
+        "duracion_domiciliaria": null,
         "configurado": 0,
         "activo": 1
       }
@@ -44,19 +46,23 @@ Orquestador transaccional de dominio para la configuración, consulta y eliminac
   - `uti_ge_excepciones_pkg.p_grabar_log`
 
 ### 2. `p_guardar_tiempos`
-- **Propósito**: Valida e inserta/actualiza (Merge) los tiempos de atención de un profesional. No es obligatorio configurar ambos tipos; se pueden guardar individualmente o en lote.
+- **Propósito**: Valida e inserta/actualiza (Merge) los tiempos de atención de un profesional (cita virtual y/o domiciliaria). No es obligatorio configurar ambos tipos; se pueden guardar individualmente o en lote.
 - **Entrada JSON**:
   ```json
   {
     "id_usuario": 47,
     "tiempos": [
-      { "id_tipo_aseguramiento": 1, "duracion": 20 }
+      { 
+        "id_tipo_aseguramiento": 1, 
+        "duracion": 20,
+        "duracion_domiciliaria": 45 
+      }
     ]
   }
   ```
 - **Reglas de Negocio**:
   - `id_usuario` es obligatorio.
-  - El arreglo `tiempos` procesa los elementos con `duracion > 0`.
+  - El arreglo `tiempos` procesa los elementos con `duracion > 0` y/o `duracion_domiciliaria > 0`.
   - Transacción atómica: `COMMIT` si todo es exitoso, `ROLLBACK` y registro en log ante error.
 - **Dependencias**:
   - `pkgcn_tiempos_atencion.p_guardar_tiempos_profesional`

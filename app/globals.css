@@ -4378,6 +4378,169 @@ input[type="time"]::-webkit-calendar-picker-indicator,
   background: #F8FAFC;
 }
 
+/* =========================================================================
+   ESTILOS PARA MODALIDAD DE FRANJAS (VIRTUAL / DOMICILIARIA / AMBAS)
+   ========================================================================= */
+
+.modalidad-selector-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip-modalidad {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.chip-modalidad:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+}
+
+.chip-modalidad.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: #10B981;
+  color: #A7F3D0;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+  font-weight: 600;
+}
+
+.chip-modalidad.modalidad-v.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: #3B82F6;
+  color: #BFDBFE;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.25);
+}
+
+.chip-modalidad.modalidad-d.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: #F59E0B;
+  color: #FDE68A;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="light"] .chip-modalidad {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #64748B;
+}
+
+[data-theme="light"] .chip-modalidad:hover {
+  background: #F1F5F9;
+  border-color: #94A3B8;
+  color: #1E293B;
+}
+
+[data-theme="light"] .chip-modalidad.active {
+  background: #D1FAE5;
+  border-color: #059669;
+  color: #047857;
+}
+
+[data-theme="light"] .chip-modalidad.modalidad-v.active {
+  background: #DBEAFE;
+  border-color: #2563EB;
+  color: #1D4ED8;
+}
+
+[data-theme="light"] .chip-modalidad.modalidad-d.active {
+  background: #FEF3C7;
+  border-color: #D97706;
+  color: #B45309;
+}
+
+/* Pills para visualización de modalidad en turnos registrados y calendario */
+.turno-modalidad-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.turno-modalidad-pill.modalidad-v {
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93C5FD;
+}
+
+.turno-modalidad-pill.modalidad-d {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #FCD34D;
+}
+
+.turno-modalidad-pill.modalidad-ambas {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6EE7B7;
+}
+
+[data-theme="light"] .turno-modalidad-pill.modalidad-v {
+  background: #EFF6FF;
+  border-color: #93C5FD;
+  color: #1D4ED8;
+}
+
+[data-theme="light"] .turno-modalidad-pill.modalidad-d {
+  background: #FFFBEB;
+  border-color: #FCD34D;
+  color: #B45309;
+}
+
+[data-theme="light"] .turno-modalidad-pill.modalidad-ambas {
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #047857;
+}
+
+/* Secciones de duración en tarjetas de tiempos */
+.tiempo-duracion-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .tiempo-duracion-section {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.tiempo-duracion-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+[data-theme="light"] .tiempo-duracion-section-title {
+  color: #1E293B;
+}
+
 
 
 

@@ -67,6 +67,7 @@ CREATE OR REPLACE PACKAGE BODY pkgln_tiempos_atencion AS
         v_id_usuario     NUMBER;
         v_id_tipo_aseg   NUMBER;
         v_duracion       NUMBER;
+        v_duracion_dom   NUMBER;
         v_validos_count  NUMBER := 0;
         v_codigo_error   NUMBER;
         v_mensaje_error  VARCHAR2(4000);
@@ -93,7 +94,15 @@ CREATE OR REPLACE PACKAGE BODY pkgln_tiempos_atencion AS
                 IF v_elem.has('duracion') AND NOT v_elem.get('duracion').is_null THEN
                     v_duracion := v_elem.get_number('duracion');
                     IF v_duracion <= 0 THEN
-                        RAISE_APPLICATION_ERROR(-20004, 'La duración debe ser un número entero mayor a 0 minutos.');
+                        RAISE_APPLICATION_ERROR(-20004, 'La duración de la cita debe ser un número entero mayor a 0 minutos.');
+                    END IF;
+                    v_validos_count := v_validos_count + 1;
+                END IF;
+
+                IF v_elem.has('duracion_domiciliaria') AND NOT v_elem.get('duracion_domiciliaria').is_null THEN
+                    v_duracion_dom := v_elem.get_number('duracion_domiciliaria');
+                    IF v_duracion_dom <= 0 THEN
+                        RAISE_APPLICATION_ERROR(-20005, 'La duración de la atención domiciliaria debe ser un número entero mayor a 0 minutos.');
                     END IF;
                     v_validos_count := v_validos_count + 1;
                 END IF;

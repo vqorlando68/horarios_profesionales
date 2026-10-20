@@ -9,6 +9,7 @@ CREATE TABLE tkr_tiempos_atencion (
     id_usuario              NUMBER(12)      NOT NULL,
     id_tipo_aseguramiento   NUMBER(12)      NOT NULL,
     duracion                NUMBER(4)       NOT NULL,
+    duracion_domiciliaria   NUMBER(4),
     activo                  NUMBER(1)       DEFAULT 1 NOT NULL,
     fecha_creacion          DATE            DEFAULT (SYSTIMESTAMP AT TIME ZONE 'America/Bogota') NOT NULL,
     id_usuario_creacion     NUMBER(12),
@@ -20,7 +21,8 @@ CREATE TABLE tkr_tiempos_atencion (
     CONSTRAINT tkr_tiempos_atenc_aseg_fk FOREIGN KEY (id_tipo_aseguramiento)
         REFERENCES tkr_tipos_aseguramiento (id),
     CONSTRAINT tkr_tiempos_atenc_uk UNIQUE (id_usuario, id_tipo_aseguramiento),
-    CONSTRAINT tkr_tiempos_atenc_dur_ck CHECK (duracion > 0)
+    CONSTRAINT tkr_tiempos_atenc_dur_ck CHECK (duracion > 0),
+    CONSTRAINT tkr_tiempos_atenc_dur_dom_ck CHECK (duracion_domiciliaria IS NULL OR duracion_domiciliaria > 0)
 );
 
 COMMENT ON TABLE tkr_tiempos_atencion IS 'Configuración de tiempos de atención (duración en minutos) por profesional y tipo de aseguramiento';

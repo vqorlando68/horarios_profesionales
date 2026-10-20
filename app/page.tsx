@@ -73,6 +73,7 @@ interface HorarioRegistrado {
 
 // Tipos y configuración para Tipos de Aseguramiento (1: Voluntario, 2: Obligatorio)
 type TipoAseguramientoId = 1 | 2;
+type ModalidadAtencion = 'V' | 'D' | null;
 
 interface TiempoAtencionItem {
   id?: number | null;
@@ -80,6 +81,7 @@ interface TiempoAtencionItem {
   id_tipo_aseguramiento: number;
   tipo_aseguramiento: string;
   duracion: number;
+  duracion_domiciliaria?: number | null;
   configurado?: number;
   activo?: number;
 }
@@ -92,6 +94,7 @@ interface FranjaHorario {
   hora_hasta: string;
   id_tipo_aseguramiento: number;
   tipo_atencion?: TipoAtencion;
+  modalidad?: ModalidadAtencion;
 }
 
 interface DiaConfigFranja {
@@ -109,6 +112,7 @@ interface FranjaRegistrada {
   id_tipo_aseguramiento: number;
   tipo_atencion?: TipoAtencion;
   tipo_aseguramiento?: string;
+  modalidad?: ModalidadAtencion;
   activo?: number;
 }
 
@@ -219,8 +223,8 @@ export default function HorariosPage() {
   const [ausencias, setAusencias] = useState<Ausencia[]>([]);
     // Estados de Tiempos de Atención
   const [tiemposAtencion, setTiemposAtencion] = useState<TiempoAtencionItem[]>([
-    { id_tipo_aseguramiento: 1, tipo_aseguramiento: 'Voluntario', duracion: 20, configurado: 0 },
-    { id_tipo_aseguramiento: 2, tipo_aseguramiento: 'Obligatorio', duracion: 30, configurado: 0 }
+    { id_tipo_aseguramiento: 1, tipo_aseguramiento: 'Voluntario', duracion: 20, duracion_domiciliaria: null, configurado: 0 },
+    { id_tipo_aseguramiento: 2, tipo_aseguramiento: 'Obligatorio', duracion: 30, duracion_domiciliaria: null, configurado: 0 }
   ]);
   const [cargandoTiempos, setCargandoTiempos] = useState<boolean>(false);
   const [guardandoTiempos, setGuardandoTiempos] = useState<boolean>(false);
@@ -539,11 +543,12 @@ export default function HorariosPage() {
         setTiemposAtencion(data.tiempos.map((t: any) => ({
           ...t,
           duracion: t.duracion !== null && t.duracion !== undefined ? t.duracion : 20,
+          duracion_domiciliaria: t.duracion_domiciliaria !== null && t.duracion_domiciliaria !== undefined ? t.duracion_domiciliaria : null,
         })));
       } else {
         setTiemposAtencion([
-          { id_tipo_aseguramiento: 1, tipo_aseguramiento: 'Voluntario', duracion: 20, configurado: 0 },
-          { id_tipo_aseguramiento: 2, tipo_aseguramiento: 'Obligatorio', duracion: 20, configurado: 0 }
+          { id_tipo_aseguramiento: 1, tipo_aseguramiento: 'Voluntario', duracion: 20, duracion_domiciliaria: null, configurado: 0 },
+          { id_tipo_aseguramiento: 2, tipo_aseguramiento: 'Obligatorio', duracion: 30, duracion_domiciliaria: null, configurado: 0 }
         ]);
       }
     } catch (err) {
@@ -553,11 +558,18 @@ export default function HorariosPage() {
     }
   };
 
-  const actualizarDuracionTiempo = (idTipoAseguramiento: number, nuevaDuracion: number) => {
+  const actualizarDuracionTiempo = (
+    idTipoAseguramiento: number,
+    campo: 'duracion' | 'duracion_domiciliaria',
+    nuevaDuracion: number | null
+  ) => {
     setTiemposAtencion((prev) =>
       prev.map((t) =>
         t.id_tipo_aseguramiento === idTipoAseguramiento
-          ? { ...t, duracion: Math.max(1, nuevaDuracion) }
+          ? {
+              ...t,
+              [campo]: nuevaDuracion === null ? null : Math.max(1, nuevaDuracion),
+            }
           : t
       )
     );
@@ -569,14 +581,20 @@ export default function HorariosPage() {
       return;
     }
     if (!t.duracion || t.duracion <= 0) {
-      notificar('error', `La duración para ${t.tipo_aseguramiento} debe ser mayor a 0 minutos.`);
+      notificar('error', `La duración de la cita para ${t.tipo_aseguramiento} debe ser mayor a 0 minutos.`);
       return;
     }
     setGuardandoTiempos(true);
     try {
       const payload = {
         id_usuario: profesionalSeleccionado.id_usuario,
-        tiempos: [{ id_tipo_aseguramiento: t.id_tipo_aseguramiento, duracion: Number(t.duracion) }],
+        tiempos: [{ 
+          id_tipo_aseguramiento: t.id_tipo_aseguramiento, 
+          duracion: Number(t.duracion),
+          duracion_domiciliaria: (t.duracion_domiciliaria && Number(t.duracion_domiciliaria) > 0)
+            ? Number(t.duracion_domiciliaria)
+            : null,
+        }],
       };
       const res = await fetch('/api/tiempos-atencion', {
         method: 'POST',
@@ -585,7 +603,7 @@ export default function HorariosPage() {
       });
       const data = await res.json();
       if (data && data.codigo === 0) {
-        notificar('success', `¡Tiempo de atención para ${t.tipo_aseguramiento} guardado exitosamente en el Sistema!`);
+        notificar('success', `¡Tiempos de atención para ${t.tipo_aseguramiento} guardados exitosamente en el Sistema!`);
         await cargarTiemposAtencion(profesionalSeleccionado.id_usuario);
       } else {
         notificar('error', data.mensaje || 'Error al guardar.');
@@ -604,7 +622,7 @@ export default function HorariosPage() {
     }
     const tiemposAGuardar = tiemposAtencion.filter(t => t.duracion && t.duracion > 0);
     if (tiemposAGuardar.length === 0) {
-      notificar('error', 'Debe configurar al menos un tiempo de atención mayor a 0 minutos.');
+      notificar('error', 'Debe configurar al menos la duración de la cita mayor a 0 minutos.');
       return;
     }
     setGuardandoTiempos(true);
@@ -614,6 +632,9 @@ export default function HorariosPage() {
         tiempos: tiemposAGuardar.map((t) => ({
           id_tipo_aseguramiento: t.id_tipo_aseguramiento,
           duracion: Number(t.duracion),
+          duracion_domiciliaria: (t.duracion_domiciliaria && Number(t.duracion_domiciliaria) > 0)
+            ? Number(t.duracion_domiciliaria)
+            : null,
         })),
       };
       const res = await fetch('/api/tiempos-atencion', {
@@ -1573,7 +1594,7 @@ export default function HorariosPage() {
   const actualizarFranja = (
     diaKey: string,
     index: number,
-    campo: 'hora_desde' | 'hora_hasta' | 'tipo_atencion' | 'id_tipo_aseguramiento',
+    campo: 'hora_desde' | 'hora_hasta' | 'tipo_atencion' | 'id_tipo_aseguramiento' | 'modalidad',
     valor: any
   ) => {
     setDiasConfigFranjas((prev) => {
@@ -1603,6 +1624,7 @@ export default function HorariosPage() {
             hora_hasta: t.hora_hasta,
             id_tipo_aseguramiento: t.id_tipo_aseguramiento || (t.tipo_atencion === 'O' ? 2 : 1),
             tipo_atencion: t.tipo_atencion || (t.id_tipo_aseguramiento === 2 ? 'O' : 'V'),
+            modalidad: t.modalidad || null,
           })),
         };
       });
@@ -1662,6 +1684,7 @@ export default function HorariosPage() {
       fecha_final: string | null;
       id_tipo_aseguramiento: number;
       tipo_atencion: TipoAtencion;
+      modalidad?: ModalidadAtencion;
     }> = [];
 
     for (const dia of DIAS_SEMANA) {
@@ -1682,6 +1705,7 @@ export default function HorariosPage() {
             fecha_final: esIndefinidoFranjas || !fechaFinalFranjas ? null : fechaFinalFranjas,
             id_tipo_aseguramiento: idAseg,
             tipo_atencion: codAtenc,
+            modalidad: t.modalidad || null,
           });
         }
       }
@@ -1821,6 +1845,7 @@ export default function HorariosPage() {
             hora_hasta: t.hora_hasta,
             id_tipo_aseguramiento: t.id_tipo_aseguramiento || (t.tipo_atencion === 'O' ? 2 : 1),
             tipo_atencion: t.tipo_atencion || (t.id_tipo_aseguramiento === 2 ? 'O' : 'V'),
+            modalidad: t.modalidad || null,
           })),
         };
       } else {
@@ -3466,12 +3491,29 @@ export default function HorariosPage() {
                                           <strong>{formatearHora12(turno.hora_hasta)}</strong>
                                         </span>
                                       </div>
-                                      <span
-                                        className={`turno-atencion-pill ${tipoConf.badgeClass}`}
-                                        title={`Modalidad: ${tipoConf.nombre}`}
-                                      >
-                                        {tipoConf.nombre}
-                                      </span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span
+                                          className={`turno-atencion-pill ${tipoConf.badgeClass}`}
+                                          title={`Régimen: ${tipoConf.nombre}`}
+                                        >
+                                          {tipoConf.nombre}
+                                        </span>
+                                        {turno.modalidad === 'V' && (
+                                          <span className="turno-modalidad-pill modalidad-v" title="Modalidad: Consulta Virtual">
+                                            Virtual (V)
+                                          </span>
+                                        )}
+                                        {turno.modalidad === 'D' && (
+                                          <span className="turno-modalidad-pill modalidad-d" title="Modalidad: Atención Domiciliaria">
+                                            Domiciliaria (D)
+                                          </span>
+                                        )}
+                                        {!turno.modalidad && (
+                                          <span className="turno-modalidad-pill modalidad-ambas" title="Aplica para ambas modalidades (Virtual y Domiciliaria)">
+                                            Virtual y Domiciliaria
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   );
                                 })}
@@ -3798,6 +3840,57 @@ export default function HorariosPage() {
                                     </button>
                                   );
                                 })}
+                              </div>
+                            </div>
+
+                            {/* Selector de Modalidad (Virtual, Domiciliaria o Ambas) */}
+                            <div className="modalidad-selector-wrap">
+                              <label className="tipo-atencion-label">Modalidad de Atención:</label>
+                              <div className="tipo-atencion-chips">
+                                <button
+                                  type="button"
+                                  onClick={() => actualizarFranja(dia.key, idx, 'modalidad', null)}
+                                  className={`chip-modalidad ${!turno.modalidad ? 'active' : ''}`}
+                                  title="Aplica para ambas modalidades (Virtual y Domiciliaria)"
+                                >
+                                  <span className="chip-text">🌐 Ambas (V y D)</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    actualizarFranja(
+                                      dia.key,
+                                      idx,
+                                      'modalidad',
+                                      turno.modalidad === 'V' ? null : 'V'
+                                    )
+                                  }
+                                  className={`chip-modalidad modalidad-v ${
+                                    turno.modalidad === 'V' ? 'active' : ''
+                                  }`}
+                                  title="Aplica únicamente para atención Virtual (V)"
+                                >
+                                  <span className="chip-code">V</span>
+                                  <span className="chip-text">Virtual</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    actualizarFranja(
+                                      dia.key,
+                                      idx,
+                                      'modalidad',
+                                      turno.modalidad === 'D' ? null : 'D'
+                                    )
+                                  }
+                                  className={`chip-modalidad modalidad-d ${
+                                    turno.modalidad === 'D' ? 'active' : ''
+                                  }`}
+                                  title="Aplica únicamente para atención Domiciliaria (D)"
+                                >
+                                  <span className="chip-code">D</span>
+                                  <span className="chip-text">Domiciliaria</span>
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -4216,7 +4309,9 @@ export default function HorariosPage() {
                                 title={`Franja ${confTipo.nombre}: ${formatearHora12(fr.hora_desde)} a ${formatearHora12(fr.hora_hasta)}`}
                               >
                                 <span>{formatearHora12(fr.hora_desde)} - {formatearHora12(fr.hora_hasta)}</span>
-                                <span style={{ opacity: 0.85, fontSize: '9px' }}>{confTipo.codigo}</span>
+                                <span style={{ opacity: 0.9, fontSize: '9px', fontWeight: 700 }}>
+                                  {confTipo.codigo}{fr.modalidad ? `·${fr.modalidad}` : ''}
+                                </span>
                               </div>
                             );
                           })}
@@ -4319,9 +4414,21 @@ export default function HorariosPage() {
                                       <div>
                                         <strong>{formatearHora12(fr.hora_desde)}</strong> a <strong>{formatearHora12(fr.hora_hasta)}</strong>
                                       </div>
-                                      <span className={`turno-atencion-pill ${confTipo.badgeClass}`} style={{ fontSize: '9.5px' }}>
-                                        {confTipo.nombre}
-                                      </span>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                                        <span className={`turno-atencion-pill ${confTipo.badgeClass}`} style={{ fontSize: '9.5px' }}>
+                                          {confTipo.nombre}
+                                        </span>
+                                        {fr.modalidad === 'V' && (
+                                          <span className="turno-modalidad-pill modalidad-v" style={{ fontSize: '9px', padding: '1px 5px' }}>
+                                            Virtual
+                                          </span>
+                                        )}
+                                        {fr.modalidad === 'D' && (
+                                          <span className="turno-modalidad-pill modalidad-d" style={{ fontSize: '9px', padding: '1px 5px' }}>
+                                            Domiciliaria
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   );
                                 })}
@@ -4564,7 +4671,7 @@ export default function HorariosPage() {
                                 const claseTipo = (fr.id_tipo_aseguramiento === 2 || fr.tipo_atencion === 'O') ? 'obligatorio' : 'voluntario';
                                 return (
                                   <span key={idx} className={`cal-event-franja ${claseTipo}`} style={{ display: 'inline-flex', padding: '3px 8px' }}>
-                                    {formatearHora12(fr.hora_desde)} - {formatearHora12(fr.hora_hasta)} ({confTipo.nombre})
+                                    {formatearHora12(fr.hora_desde)} - {formatearHora12(fr.hora_hasta)} ({confTipo.nombre}{fr.modalidad === 'V' ? ' · Virtual' : fr.modalidad === 'D' ? ' · Domiciliaria' : ''})
                                   </span>
                                 );
                               })}
@@ -4668,7 +4775,18 @@ export default function HorariosPage() {
                                 return (
                                   <div key={idx} className={`cal-event-franja ${claseTipo}`} style={{ padding: '6px 10px', fontSize: '12px', marginBottom: '4px' }}>
                                     <span>{formatearHora12(fr.hora_desde)} a {formatearHora12(fr.hora_hasta)}</span>
-                                    <span className={`turno-atencion-pill ${confTipo.badgeClass}`}>{confTipo.nombre}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span className={`turno-atencion-pill ${confTipo.badgeClass}`}>{confTipo.nombre}</span>
+                                      {fr.modalidad === 'V' && (
+                                        <span className="turno-modalidad-pill modalidad-v">Virtual (V)</span>
+                                      )}
+                                      {fr.modalidad === 'D' && (
+                                        <span className="turno-modalidad-pill modalidad-d">Domiciliaria (D)</span>
+                                      )}
+                                      {!fr.modalidad && (
+                                        <span className="turno-modalidad-pill modalidad-ambas">Virtual y Domiciliaria</span>
+                                      )}
+                                    </div>
                                   </div>
                                 );
                               })
@@ -4769,6 +4887,9 @@ export default function HorariosPage() {
                 const confTipo = obtenerConfigTipoAtencion(t.id_tipo_aseguramiento);
                 const esObligatorio = t.id_tipo_aseguramiento === 2;
                 const pacientesPorHora = t.duracion > 0 ? (60 / t.duracion).toFixed(1) : '0';
+                const pacientesPorHoraDom = (t.duracion_domiciliaria && t.duracion_domiciliaria > 0)
+                  ? (60 / t.duracion_domiciliaria).toFixed(1)
+                  : '0';
 
                 return (
                   <div
@@ -4785,8 +4906,8 @@ export default function HorariosPage() {
                         </h3>
                         <p className="tiempo-card-desc">
                           {esObligatorio
-                            ? 'Tiempo asignado a citas bajo régimen obligatorio.'
-                            : 'Tiempo asignado a citas bajo régimen voluntario.'}
+                            ? 'Tiempos asignados a citas virtuales y domiciliarias bajo régimen obligatorio.'
+                            : 'Tiempos asignados a citas virtuales y domiciliarias bajo régimen voluntario.'}
                         </p>
                       </div>
 
@@ -4806,67 +4927,185 @@ export default function HorariosPage() {
                     </div>
 
                     <div className="tiempo-card-body">
-                      <label className="tiempo-input-label">Duración de la Cita (Minutos):</label>
-                      
-                      <div className="tiempo-input-row">
-                        <div className="tiempo-number-stepper">
-                          <button
-                            type="button"
-                            className="tiempo-step-btn"
-                            onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, (t.duracion || 20) - 5)}
-                            disabled={(t.duracion || 20) <= 5}
-                            title="Disminuir 5 minutos"
-                          >
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            min="1"
-                            max="480"
-                            className="tiempo-number-input"
-                            value={t.duracion || 20}
-                            onChange={(e) =>
-                              actualizarDuracionTiempo(
-                                t.id_tipo_aseguramiento,
-                                parseInt(e.target.value) || 1
-                              )
-                            }
-                          />
-                          <span className="tiempo-unit-label">min</span>
-                          <button
-                            type="button"
-                            className="tiempo-step-btn"
-                            onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, (t.duracion || 20) + 5)}
-                            title="Aumentar 5 minutos"
-                          >
-                            +
-                          </button>
+                      {/* 1. SECCIÓN DURACIÓN CITA VIRTUAL / ESTÁNDAR */}
+                      <div className="tiempo-duracion-section">
+                        <div className="tiempo-duracion-section-title">
+                          <span style={{ color: '#3B82F6' }}>💻</span>
+                          <span>Duración de la Cita (Minutos)</span>
+                        </div>
+                        
+                        <div className="tiempo-input-row">
+                          <div className="tiempo-number-stepper">
+                            <button
+                              type="button"
+                              className="tiempo-step-btn"
+                              onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion', (t.duracion || 20) - 5)}
+                              disabled={(t.duracion || 20) <= 5}
+                              title="Disminuir 5 minutos"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              max="480"
+                              className="tiempo-number-input"
+                              value={t.duracion || 20}
+                              onChange={(e) =>
+                                actualizarDuracionTiempo(
+                                  t.id_tipo_aseguramiento,
+                                  'duracion',
+                                  parseInt(e.target.value) || 1
+                                )
+                              }
+                            />
+                            <span className="tiempo-unit-label">min</span>
+                            <button
+                              type="button"
+                              className="tiempo-step-btn"
+                              onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion', (t.duracion || 20) + 5)}
+                              title="Aumentar 5 minutos"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          {/* Botones rápidos de selección de minutos virtuales */}
+                          <div className="tiempo-quick-pills">
+                            {[15, 20, 30, 45, 60].map((min) => (
+                              <button
+                                key={min}
+                                type="button"
+                                className={`tiempo-quick-pill ${(t.duracion || 20) === min ? 'active' : ''}`}
+                                onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion', min)}
+                              >
+                                {min} min
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
-                        {/* Botones rápidos de selección de minutos */}
-                        <div className="tiempo-quick-pills">
-                          {[15, 20, 30, 45, 60].map((min) => (
-                            <button
-                              key={min}
-                              type="button"
-                              className={`tiempo-quick-pill ${(t.duracion || 20) === min ? 'active' : ''}`}
-                              onClick={() => actualizarDuracionTiempo(t.id_tipo_aseguramiento, min)}
-                            >
-                              {min} min
-                            </button>
-                          ))}
+                        {/* Estimación de Capacidad Virtual */}
+                        <div className="tiempo-calc-box">
+                          <div className="tiempo-calc-icon">
+                            <Clock size={15} />
+                          </div>
+                          <div className="tiempo-calc-text">
+                            <strong>Capacidad Virtual:</strong> Aprox.{' '}
+                            <span className="tiempo-calc-number">{pacientesPorHora}</span> pacientes por hora.
+                          </div>
                         </div>
                       </div>
 
-                      {/* Estimación de Capacidad / Pacientes por Hora */}
-                      <div className="tiempo-calc-box">
-                        <div className="tiempo-calc-icon">
-                          <Clock size={16} />
+                      {/* 2. SECCIÓN DURACIÓN ATENCIÓN DOMICILIARIA */}
+                      <div className="tiempo-duracion-section">
+                        <div className="tiempo-duracion-section-title">
+                          <span style={{ color: '#F59E0B' }}>🏠</span>
+                          <span>Duración Atención Domiciliaria (Minutos)</span>
+                          {!t.duracion_domiciliaria && (
+                            <span style={{ fontSize: '10px', color: '#F59E0B', marginLeft: 'auto', fontWeight: 600 }}>
+                              (Opcional - Valor actual: NULL)
+                            </span>
+                          )}
                         </div>
-                        <div className="tiempo-calc-text">
-                          <strong>Capacidad estimada:</strong> Aproximadamente{' '}
-                          <span className="tiempo-calc-number">{pacientesPorHora}</span> pacientes por hora
-                          de consulta continua.
+                        
+                        <div className="tiempo-input-row">
+                          <div className="tiempo-number-stepper">
+                            <button
+                              type="button"
+                              className="tiempo-step-btn"
+                              onClick={() => {
+                                const actual = t.duracion_domiciliaria;
+                                if (!actual || actual <= 10) {
+                                  actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion_domiciliaria', null);
+                                } else {
+                                  actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion_domiciliaria', actual - 5);
+                                }
+                              }}
+                              disabled={!t.duracion_domiciliaria}
+                              title="Disminuir 5 minutos"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              max="480"
+                              className="tiempo-number-input"
+                              placeholder="NULL"
+                              value={t.duracion_domiciliaria ?? ''}
+                              onChange={(e) => {
+                                const valStr = e.target.value.trim();
+                                if (valStr === '') {
+                                  actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion_domiciliaria', null);
+                                } else {
+                                  actualizarDuracionTiempo(
+                                    t.id_tipo_aseguramiento,
+                                    'duracion_domiciliaria',
+                                    Math.max(1, parseInt(valStr) || 1)
+                                  );
+                                }
+                              }}
+                            />
+                            <span className="tiempo-unit-label">min</span>
+                            <button
+                              type="button"
+                              className="tiempo-step-btn"
+                              onClick={() => {
+                                const actual = t.duracion_domiciliaria || 25;
+                                actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion_domiciliaria', actual + 5);
+                              }}
+                              title="Aumentar 5 minutos"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          {/* Botones rápidos de selección de minutos domiciliarios */}
+                          <div className="tiempo-quick-pills">
+                            <button
+                              type="button"
+                              className={`tiempo-quick-pill ${!t.duracion_domiciliaria ? 'active' : ''}`}
+                              onClick={() =>
+                                actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion_domiciliaria', null)
+                              }
+                              title="Marcar como no configurada (almacena NULL en la base de datos)"
+                            >
+                              🚫 Sin atención (NULL)
+                            </button>
+                            {[30, 45, 60, 90, 120].map((min) => (
+                              <button
+                                key={min}
+                                type="button"
+                                className={`tiempo-quick-pill ${t.duracion_domiciliaria === min ? 'active' : ''}`}
+                                onClick={() =>
+                                  actualizarDuracionTiempo(t.id_tipo_aseguramiento, 'duracion_domiciliaria', min)
+                                }
+                              >
+                                {min} min
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Estimación de Capacidad Domiciliaria */}
+                        <div className="tiempo-calc-box">
+                          <div className="tiempo-calc-icon">
+                            {t.duracion_domiciliaria ? <Clock size={15} /> : <Info size={15} />}
+                          </div>
+                          <div className="tiempo-calc-text">
+                            {t.duracion_domiciliaria ? (
+                              <>
+                                <strong>Capacidad Domiciliaria:</strong> Aprox.{' '}
+                                <span className="tiempo-calc-number">{pacientesPorHoraDom}</span> pacientes por hora.
+                              </>
+                            ) : (
+                              <>
+                                <strong>Atención Domiciliaria:</strong> No configurada / No aplica (Se grabará{' '}
+                                <strong style={{ color: '#F59E0B' }}>NULL</strong> en Base de Datos).
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
 

@@ -31,7 +31,10 @@ import {
   List,
   CalendarDays,
   CalendarCheck,
-  AlertTriangle
+  AlertTriangle,
+  HelpCircle,
+  BookOpen,
+  Layers
 } from 'lucide-react';
 
 interface Profesional {
@@ -299,6 +302,12 @@ export default function HorariosPage() {
     esDomingo: boolean;
     listaHorariosAplanada: any[];
   } | null>(null);
+
+  // Estado para el Modal Interactivo de Guía y Ayuda Operativa
+  const [modalAyudaAbierto, setModalAyudaAbierto] = useState<boolean>(false);
+  const [seccionAyudaActiva, setSeccionAyudaActiva] = useState<
+    'general' | 'prioridades' | 'horarios' | 'festivos' | 'franjas' | 'tiempos' | 'faq'
+  >('general');
 
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -2317,6 +2326,17 @@ export default function HorariosPage() {
         </div>
 
         <div className="header-actions">
+          {/* Botón de Ayuda y Guía Operativa */}
+          <button
+            type="button"
+            onClick={() => setModalAyudaAbierto(true)}
+            className="btn-help-toggle"
+            title="Ver Guía y Ayuda Operativa del Sistema"
+          >
+            <HelpCircle size={15} color="var(--accent-cyan)" />
+            <span>Guía y Ayuda</span>
+          </button>
+
           {/* Selector de Tema Claro / Oscuro */}
           <button
             type="button"
@@ -5326,6 +5346,376 @@ export default function HorariosPage() {
               >
                 <Save size={15} />
                 {guardando ? 'Guardando en el Sistema...' : 'Continuar y Grabar Horario por Día'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL INTERACTIVO DE GUÍA Y AYUDA OPERATIVA DEL SISTEMA */}
+      {modalAyudaAbierto && (
+        <div className="modal-backdrop" onClick={() => setModalAyudaAbierto(false)}>
+          <div className="help-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            {/* Cabecera */}
+            <div className="help-modal-header">
+              <div className="help-modal-title-wrap">
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  background: 'rgba(6, 182, 212, 0.15)',
+                  border: '1px solid rgba(6, 182, 212, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <HelpCircle size={22} color="var(--accent-cyan)" />
+                </div>
+                <div>
+                  <h3>Guía Operativa y Ayuda del Sistema</h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    TEKER Medical Suite • Módulo Integral de Horarios, Franjas, Ausencias y Tiempos
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn-modal-cancel"
+                onClick={() => setModalAyudaAbierto(false)}
+                style={{ padding: '6px 12px' }}
+                title="Cerrar guía de ayuda"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Barra de Navegación por Secciones */}
+            <div className="help-modal-nav">
+              <button
+                type="button"
+                className={`help-nav-btn ${seccionAyudaActiva === 'general' ? 'active' : ''}`}
+                onClick={() => setSeccionAyudaActiva('general')}
+              >
+                <Sparkles size={14} />
+                Visión General
+              </button>
+              <button
+                type="button"
+                className={`help-nav-btn ${seccionAyudaActiva === 'prioridades' ? 'active' : ''}`}
+                onClick={() => setSeccionAyudaActiva('prioridades')}
+              >
+                <Layers size={14} />
+                3 Tipos de Horario y Prioridades
+              </button>
+              <button
+                type="button"
+                className={`help-nav-btn ${seccionAyudaActiva === 'horarios' ? 'active' : ''}`}
+                onClick={() => setSeccionAyudaActiva('horarios')}
+              >
+                <Clock size={14} />
+                Paso a Paso: Crear Horarios
+              </button>
+              <button
+                type="button"
+                className={`help-nav-btn ${seccionAyudaActiva === 'festivos' ? 'active' : ''}`}
+                onClick={() => setSeccionAyudaActiva('festivos')}
+              >
+                <AlertTriangle size={14} />
+                Festivos y Ausencias
+              </button>
+              <button
+                type="button"
+                className={`help-nav-btn ${seccionAyudaActiva === 'franjas' ? 'active' : ''}`}
+                onClick={() => setSeccionAyudaActiva('franjas')}
+              >
+                <CalendarRange size={14} />
+                Franjas de Atención
+              </button>
+              <button
+                type="button"
+                className={`help-nav-btn ${seccionAyudaActiva === 'tiempos' ? 'active' : ''}`}
+                onClick={() => setSeccionAyudaActiva('tiempos')}
+              >
+                <Timer size={14} />
+                Tiempos de Consulta
+              </button>
+              <button
+                type="button"
+                className={`help-nav-btn ${seccionAyudaActiva === 'faq' ? 'active' : ''}`}
+                onClick={() => setSeccionAyudaActiva('faq')}
+              >
+                <Info size={14} />
+                Preguntas Frecuentes
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal con Contenido Dinámico */}
+            <div className="help-modal-body">
+              {seccionAyudaActiva === 'general' && (
+                <>
+                  <div className="help-card-box">
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-highlight)', marginBottom: '8px' }}>
+                      Bienvenido al Módulo de Horarios de TEKER Medical Suite
+                    </h4>
+                    <p style={{ margin: 0 }}>
+                      Este módulo permite planificar y gestionar la disponibilidad médica de los profesionales de la salud con total precisión.
+                      El aplicativo se compone de 5 pestañas principales:
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px' }}>
+                    <div className="help-card-box">
+                      <strong style={{ color: 'var(--accent-teal)' }}>1. Horario Profesional:</strong>
+                      <p style={{ fontSize: '13px', margin: '4px 0 0 0' }}>
+                        Permite configurar turnos semanales por día único, por rangos de fechas (temporadas) o de vigencia indefinida (horario base).
+                      </p>
+                    </div>
+
+                    <div className="help-card-box">
+                      <strong style={{ color: 'var(--accent-purple)' }}>2. Franjas de Atención:</strong>
+                      <p style={{ fontSize: '13px', margin: '4px 0 0 0' }}>
+                        Segmenta los horarios según la modalidad del paciente: Voluntario (V), Obligatorio (O) o Giris (G).
+                      </p>
+                    </div>
+
+                    <div className="help-card-box">
+                      <strong style={{ color: 'var(--accent-amber)' }}>3. Ausencias y Permisos:</strong>
+                      <p style={{ fontSize: '13px', margin: '4px 0 0 0' }}>
+                        Registra vacaciones, incapacidades o licencias, bloqueando de inmediato la agenda médica para esas fechas.
+                      </p>
+                    </div>
+
+                    <div className="help-card-box">
+                      <strong style={{ color: 'var(--accent-cyan)' }}>4. Calendario Mensual:</strong>
+                      <p style={{ fontSize: '13px', margin: '4px 0 0 0' }}>
+                        Visualizador interactivo mes a mes que identifica exactamente qué horario rige cada día y muestra festivos nacionales.
+                      </p>
+                    </div>
+
+                    <div className="help-card-box">
+                      <strong style={{ color: '#EC4899' }}>5. Tiempos de Atención:</strong>
+                      <p style={{ fontSize: '13px', margin: '4px 0 0 0' }}>
+                        Configuración de la duración en minutos de la consulta por cada tipo de aseguramiento y cálculo de pacientes por hora.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {seccionAyudaActiva === 'prioridades' && (
+                <>
+                  <div className="help-card-box">
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-highlight)', marginBottom: '8px' }}>
+                      Jerarquía de Prioridad en la Agenda (Orden de Prelación)
+                    </h4>
+                    <p style={{ margin: 0 }}>
+                      Para saber qué horario aplica a un profesional en una fecha determinada y poder visualizarlo con certeza en el calendario, el sistema evalúa los horarios en el siguiente orden estricto:
+                    </p>
+                  </div>
+
+                  <div className="help-priority-row" style={{ borderLeft: '4px solid #10B981' }}>
+                    <span className="help-priority-badge" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10B981', border: '1px solid #10B981' }}>
+                      1. Máxima Prioridad
+                    </span>
+                    <div>
+                      <strong style={{ color: '#10B981', fontSize: '15px' }}>Aplica Horario por Día (Fecha Inicial = Fecha Final)</strong>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13.5px' }}>
+                        Aplica <strong>exclusivamente para esa fecha exacta</strong>. Tiene máxima precedencia y prevalece sobre cualquier otro horario para ese día. Se utiliza para coberturas especiales, turnos de apoyo o jornadas con horas diferentes a las habituales.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="help-priority-row" style={{ borderLeft: '4px solid #38BDF8' }}>
+                    <span className="help-priority-badge" style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', border: '1px solid #38BDF8' }}>
+                      2. Prioridad Media
+                    </span>
+                    <div>
+                      <strong style={{ color: '#38BDF8', fontSize: '15px' }}>Aplica Horario Personalizado (Rango de Fechas)</strong>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13.5px' }}>
+                        Aplica para el rango comprendido entre la <code>Fecha Inicial</code> y la <code>Fecha Final</code>. Sobrescribe el horario base durante dicho período (por ejemplo: turnos especiales durante 2 semanas de campaña o vacaciones de mitad de año).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="help-priority-row" style={{ borderLeft: '4px solid #A855F7' }}>
+                    <span className="help-priority-badge" style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#A855F7', border: '1px solid #A855F7' }}>
+                      3. Prioridad Base
+                    </span>
+                    <div>
+                      <strong style={{ color: '#A855F7', fontSize: '15px' }}>Aplica Horario Base (Vigencia Indefinida)</strong>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13.5px' }}>
+                        Tiene fecha inicial y <code>Fecha Final vacía</code>. Rige de forma permanente semana a semana a lo largo del año, a menos que en una fecha puntual exista un Horario por Día o Personalizado. Solo se permite un Horario Base por profesional.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {seccionAyudaActiva === 'horarios' && (
+                <>
+                  <div className="help-card-box">
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-highlight)', marginBottom: '8px' }}>
+                      Paso a Paso: ¿Cómo Configurar y Guardar un Horario?
+                    </h4>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="help-card-box">
+                      <strong style={{ color: 'var(--accent-cyan)' }}>Paso 1: Escoger la Vigencia o Activar "Horario por día"</strong>
+                      <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13.5px' }}>
+                        <li><strong>Para un solo día:</strong> Active el toggle <em>"Horario por día (Aplica solo para un día específico)"</em>. El sistema pedirá únicamente una fecha y habilitará solo el día de la semana correspondiente, bloqueando los demás días automáticamente.</li>
+                        <li><strong>Para un rango de fechas:</strong> Deje el toggle apagado, elija <em>Fecha Inicial</em> y <em>Fecha Final</em>.</li>
+                        <li><strong>Para el Horario Base:</strong> Deje el toggle apagado y la <em>Fecha Final vacía</em>.</li>
+                      </ul>
+                    </div>
+
+                    <div className="help-card-box">
+                      <strong style={{ color: 'var(--accent-teal)' }}>Paso 2: Asignar Turnos y Horas Semanales</strong>
+                      <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13.5px' }}>
+                        <li>Para cada día hábil, configure la <strong>Hora Desde</strong> y <strong>Hora Hasta</strong>.</li>
+                        <li>Si el médico tiene jornada partida (ej. mañana y tarde), use <strong>+ Agregar Turno</strong> para añadir más bloques de horas en el mismo día.</li>
+                        <li>Use el botón <strong>Replicar Lunes a Viernes</strong> para copiar los turnos del lunes al resto de la semana hábil en un solo clic.</li>
+                      </ul>
+                    </div>
+
+                    <div className="help-card-box">
+                      <strong style={{ color: 'var(--accent-amber)' }}>Paso 3: Guardar en el Sistema</strong>
+                      <p style={{ margin: '6px 0 0 0', fontSize: '13.5px' }}>
+                        Haga clic en <strong>Guardar Horarios</strong>. El sistema validará coherencia de horas, ausencia de traslapes y persistirá de manera segura en la base de datos.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {seccionAyudaActiva === 'festivos' && (
+                <>
+                  <div className="help-card-box">
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-highlight)', marginBottom: '8px' }}>
+                      Manejo de Domingos, Festivos Nacionales y Ausencias
+                    </h4>
+                  </div>
+
+                  <div className="help-card-box">
+                    <strong style={{ color: '#F59E0B' }}>Switch "Trabaja Domingos y Festivos"</strong>
+                    <p style={{ margin: '6px 0 0 0', fontSize: '13.5px' }}>
+                      En la cabecera del profesional, este switch define si el médico tiene autorización para laborar domingos y días feriados oficiales.
+                    </p>
+                    <p style={{ margin: '6px 0 0 0', fontSize: '13.5px' }}>
+                      Si el profesional tiene marcado que <strong>NO trabaja domingos y festivos</strong> y se intenta guardar un <em>Horario por Día</em> en una fecha que cae en domingo o festivo, el sistema emitirá un <strong>modal de advertencia</strong> para que el usuario confirme si desea continuar con la excepción o cancelar.
+                    </p>
+                  </div>
+
+                  <div className="help-card-box">
+                    <strong style={{ color: '#EF4444' }}>Gestión de Ausencias y Bloqueos de Agenda</strong>
+                    <p style={{ margin: '6px 0 0 0', fontSize: '13.5px' }}>
+                      En la pestaña <em>Ausencias</em> puede registrar vacaciones, permisos personales o incapacidades. El sistema marcará los días como <strong>Ausente</strong> en el calendario mensual e impedirá programar citas médicas durante ese lapso.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {seccionAyudaActiva === 'franjas' && (
+                <>
+                  <div className="help-card-box">
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-highlight)', marginBottom: '8px' }}>
+                      Franjas de Atención por Modalidad de Aseguramiento
+                    </h4>
+                    <p style={{ margin: 0 }}>
+                      Permite reservar bloques de tiempo específicos para atender a pacientes de acuerdo con su tipo de afiliación:
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div className="help-card-box" style={{ borderLeft: '4px solid #10B981' }}>
+                      <strong style={{ color: '#10B981' }}>Voluntario (V):</strong> Planes complementarios, medicina prepagada, pólizas de salud o particulares.
+                    </div>
+                    <div className="help-card-box" style={{ borderLeft: '4px solid #38BDF8' }}>
+                      <strong style={{ color: '#38BDF8' }}>Obligatorio (O):</strong> Consultas cubiertas por el Plan de Beneficios en Salud / EPS.
+                    </div>
+                    <div className="help-card-box" style={{ borderLeft: '4px solid #A855F7' }}>
+                      <strong style={{ color: '#A855F7' }}>Giris (G):</strong> Atenciones de programas especiales, control crónico o gestión de riesgo.
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {seccionAyudaActiva === 'tiempos' && (
+                <>
+                  <div className="help-card-box">
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-highlight)', marginBottom: '8px' }}>
+                      Tiempos de Atención por Consulta Médica
+                    </h4>
+                    <p style={{ margin: 0 }}>
+                      En la pestaña <em>Tiempos de Atención</em> puede configurar la duración requerida en minutos por consulta para cada tipo de aseguramiento.
+                    </p>
+                  </div>
+
+                  <div className="help-card-box">
+                    <strong style={{ color: 'var(--accent-teal)' }}>Rendimiento Estimado (Pacientes / Hora)</strong>
+                    <p style={{ margin: '6px 0 0 0', fontSize: '13.5px' }}>
+                      Al ingresar los minutos (por ejemplo: <code>20</code> minutos), el sistema calcula automáticamente cuántos pacientes podrá atender el médico por hora (<code>3.0 pac/h</code>).
+                    </p>
+                    <p style={{ margin: '6px 0 0 0', fontSize: '13.5px' }}>
+                      Puede guardar la configuración de cada tarjeta individualmente o utilizar el botón superior <strong>Guardar Tiempos</strong>.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {seccionAyudaActiva === 'faq' && (
+                <>
+                  <div className="help-card-box">
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-highlight)', marginBottom: '8px' }}>
+                      Preguntas Frecuentes (FAQ)
+                    </h4>
+                  </div>
+
+                  <div className="help-card-box">
+                    <strong>¿Qué sucede si un médico tiene Horario Base y Horario por Día para la misma fecha?</strong>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+                      Prevalece siempre el <strong>Horario por Día</strong> para esa fecha puntual (Prioridad #1). Para todos los demás días del año continuará rigiendo normalmente el Horario Base.
+                    </p>
+                  </div>
+
+                  <div className="help-card-box">
+                    <strong>¿Por qué al activar "Horario por día" solo puedo editar un día de la semana?</strong>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+                      Dado que el horario es para una fecha puntual, el sistema detecta a qué día de la semana pertenece (ej. Jueves) y bloquea los otros días para evitar discrepancias de citación.
+                    </p>
+                  </div>
+
+                  <div className="help-card-box">
+                    <strong>¿Cómo saber qué horario rige un día en el Calendario?</strong>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+                      En la pestaña <em>Calendario</em>, cada día con turnos muestra un chip con la etiqueta <strong>Día</strong>, <strong>Personalizado</strong> o <strong>Base</strong>. Al hacer clic sobre el día verá el desglose exacto de turnos y horas.
+                    </p>
+                  </div>
+
+                  <div className="help-card-box">
+                    <strong>¿Dónde encuentro el manual de usuario completo para impresión o auditoría?</strong>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+                      El manual formal se encuentra disponible en <code>docs/manuales/MANUAL_USUARIO_HORARIOS.md</code> en formato Markdown estandarizado.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Pie del Modal */}
+            <div className="help-modal-footer">
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Manual completo disponible en <strong>docs/manuales/MANUAL_USUARIO_HORARIOS.md</strong>
+              </span>
+
+              <button
+                type="button"
+                className="btn-save-main"
+                style={{ minWidth: '130px', padding: '8px 18px' }}
+                onClick={() => setModalAyudaAbierto(false)}
+              >
+                Cerrar Guía
               </button>
             </div>
           </div>

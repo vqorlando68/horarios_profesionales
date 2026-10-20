@@ -4178,5 +4178,206 @@ input[type="time"]::-webkit-calendar-picker-indicator,
   color: #FFFFFF;
 }
 
+/* ==========================================================================
+   BOTÓN Y MODAL INTERACTIVO DE GUÍA Y AYUDA OPERATIVA DEL SISTEMA
+   ========================================================================== */
+
+.btn-help-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  color: var(--accent-cyan);
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-help-toggle:hover {
+  background: rgba(6, 182, 212, 0.22);
+  border-color: var(--accent-cyan);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+}
+
+[data-theme="light"] .btn-help-toggle {
+  background: #ECFEFF;
+  border-color: #06B6D4;
+  color: #0891B2;
+}
+
+[data-theme="light"] .btn-help-toggle:hover {
+  background: #0891B2;
+  color: #FFFFFF;
+}
+
+.help-modal-dialog {
+  background: #0E1628;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-lg);
+  max-width: 920px;
+  width: 95vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.85);
+  animation: zoomInModal 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+[data-theme="light"] .help-modal-dialog {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  box-shadow: 0 25px 70px rgba(15, 23, 42, 0.22);
+}
+
+.help-modal-header {
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] .help-modal-header {
+  border-bottom: 1px solid #E2E8F0;
+  background: #F8FAFC;
+}
+
+.help-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.help-modal-title-wrap h3 {
+  font-size: 19px;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+}
+
+[data-theme="light"] .help-modal-title-wrap h3 {
+  color: #0F172A;
+}
+
+.help-modal-nav {
+  display: flex;
+  gap: 6px;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+}
+
+[data-theme="light"] .help-modal-nav {
+  background: #F1F5F9;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.help-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+
+.help-nav-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.help-nav-btn.active {
+  background: var(--accent-cyan);
+  color: #04101E;
+  font-weight: 700;
+}
+
+[data-theme="light"] .help-nav-btn.active {
+  background: #0891B2;
+  color: #FFFFFF;
+}
+
+.help-modal-body {
+  padding: 22px 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #CBD5E1;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+[data-theme="light"] .help-modal-body {
+  color: #334155;
+}
+
+.help-card-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+}
+
+[data-theme="light"] .help-card-box {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+.help-priority-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 10px;
+}
+
+[data-theme="light"] .help-priority-row {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+}
+
+.help-priority-badge {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.help-modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="light"] .help-modal-footer {
+  border-top: 1px solid #E2E8F0;
+  background: #F8FAFC;
+}
+
+
 
 

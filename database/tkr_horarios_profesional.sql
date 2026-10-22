@@ -27,6 +27,7 @@ CREATE TABLE tkr_horarios_profesional (
     fecha_inicial           DATE            NOT NULL,
     fecha_final             DATE,
     id_tipo_aseguramiento   NUMBER(12)      DEFAULT 1 NOT NULL,
+    id_convenio             NUMBER(12),
     activo                  NUMBER(1)       DEFAULT 1 NOT NULL,
     fecha_creacion          DATE            DEFAULT (SYSTIMESTAMP AT TIME ZONE 'America/Bogota') NOT NULL,
     id_usuario_creacion     NUMBER(12),
@@ -37,6 +38,8 @@ CREATE TABLE tkr_horarios_profesional (
         REFERENCES tkr_usuarios (id),
     CONSTRAINT fk_tkr_hor_prof_aseg FOREIGN KEY (id_tipo_aseguramiento)
         REFERENCES tkr_tipos_aseguramiento (id),
+    CONSTRAINT fk_tkr_hor_prof_conv FOREIGN KEY (id_convenio)
+        REFERENCES tkr_convenios (id),
     CONSTRAINT tkr_horarios_prof_dia_ck CHECK (
         dia_semana IN ('LU', 'MA', 'MI', 'JU', 'VI', 'SA', 'DO')
     ),
@@ -67,6 +70,7 @@ COMMENT ON COLUMN tkr_horarios_profesional.hora_desde IS 'Hora inicial del rango
 COMMENT ON COLUMN tkr_horarios_profesional.hora_hasta IS 'Hora final del rango de atención en formato HH24:MI (ej: 12:00, 18:00)';
 COMMENT ON COLUMN tkr_horarios_profesional.fecha_inicial IS 'Fecha de inicio de vigencia del horario (obligatoria)';
 COMMENT ON COLUMN tkr_horarios_profesional.fecha_final IS 'Fecha de fin de vigencia del horario (opcional: si es NULL, aplica indefinidamente)';
+COMMENT ON COLUMN tkr_horarios_profesional.id_convenio IS 'Identificador del convenio (FK a tkr_convenios.id). NULL = Aplica a todos los convenios';
 COMMENT ON COLUMN tkr_horarios_profesional.activo IS 'Estado del rango horario: 1 = Activo, 0 = Inactivo';
 COMMENT ON COLUMN tkr_horarios_profesional.fecha_creacion IS 'Fecha y hora de creación del registro con zona horaria America/Bogota';
 COMMENT ON COLUMN tkr_horarios_profesional.id_usuario_creacion IS 'Usuario que registró el horario';

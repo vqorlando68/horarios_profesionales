@@ -15,7 +15,8 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
         p_hora_hasta         IN VARCHAR2,
         p_fecha_inicial      IN DATE,
         p_fecha_final        IN DATE DEFAULT NULL,
-        p_id_franja_excluir  IN NUMBER DEFAULT NULL
+        p_id_franja_excluir  IN NUMBER DEFAULT NULL,
+        p_id_convenio        IN NUMBER DEFAULT NULL
     ) RETURN BOOLEAN IS
         v_conteo    NUMBER := 0;
         v_fin_nuevo DATE;
@@ -42,7 +43,12 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
            AND v_fin_nuevo     >= h.fecha_inicial
            -- 2. Intersección de rangos de horas dentro del mismo día
            AND p_hora_desde < h.hora_hasta
-           AND p_hora_hasta > h.hora_desde;
+           AND p_hora_hasta > h.hora_desde
+           -- 3. Prioridad de convenio
+           AND (
+               (p_id_convenio IS NOT NULL AND h.id_convenio = p_id_convenio)
+               OR (p_id_convenio IS NULL AND h.id_convenio IS NULL)
+           );
 
         RETURN (v_conteo > 0);
     END f_existe_traslape_franja;
@@ -62,6 +68,7 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
             fecha_inicial,
             fecha_final,
             id_tipo_aseguramiento,
+            id_convenio,
             modalidad,
             activo,
             fecha_creacion
@@ -77,7 +84,18 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                    THEN TO_DATE(TRIM(jt.fecha_final), 'YYYY-MM-DD')
                    ELSE NULL
                END,
-               NVL(jt.id_tipo_aseguramiento, CASE WHEN UPPER(TRIM(jt.tipo_atencion)) = 'O' THEN 2 ELSE 1 END),
+               COALESCE(
+                   (SELECT CASE WHEN UPPER(TRIM(e.tipo_aseguramiento)) = 'O' THEN 2 
+                                WHEN UPPER(TRIM(e.tipo_aseguramiento)) = 'V' THEN 1 
+                                ELSE NULL END
+                      FROM tkr_convenios c, tkr_entidades e
+                     WHERE c.id = jt.id_convenio
+                       AND e.id(+) = c.id_entidad_hijo
+                       AND ROWNUM = 1),
+                   jt.id_tipo_aseguramiento,
+                   CASE WHEN UPPER(TRIM(jt.tipo_atencion)) = 'O' THEN 2 ELSE 1 END
+               ),
+               jt.id_convenio,
                CASE 
                    WHEN UPPER(TRIM(jt.modalidad)) IN ('V', 'D') THEN UPPER(TRIM(jt.modalidad))
                    ELSE NULL
@@ -86,12 +104,13 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                SYSDATE
           FROM JSON_TABLE(p_json_franjas, '$.franjas[*]'
                    COLUMNS (
-                       dia_semana    VARCHAR2(10) PATH '$.dia_semana',
-                       hora_desde    VARCHAR2(10) PATH '$.hora_desde',
-                       hora_hasta    VARCHAR2(10) PATH '$.hora_hasta',
-                       fecha_inicial VARCHAR2(20) PATH '$.fecha_inicial',
-                       fecha_final   VARCHAR2(20) PATH '$.fecha_final',
+                       dia_semana            VARCHAR2(10) PATH '$.dia_semana',
+                       hora_desde            VARCHAR2(10) PATH '$.hora_desde',
+                       hora_hasta            VARCHAR2(10) PATH '$.hora_hasta',
+                       fecha_inicial         VARCHAR2(20) PATH '$.fecha_inicial',
+                       fecha_final           VARCHAR2(20) PATH '$.fecha_final',
                        id_tipo_aseguramiento NUMBER       PATH '$.id_tipo_aseguramiento',
+                       id_convenio           NUMBER       PATH '$.id_convenio',
                        tipo_atencion         VARCHAR2(10) PATH '$.tipo_atencion',
                        modalidad             VARCHAR2(10) PATH '$.modalidad'
                    )
@@ -119,6 +138,8 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                                'id_tipo_aseguramiento' VALUE NVL(h.id_tipo_aseguramiento, 1),
                                'tipo_atencion'         VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'O' ELSE 'V' END),
                                'tipo_aseguramiento'    VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'Obligatorio' ELSE 'Voluntario' END),
+                               'id_convenio'           VALUE h.id_convenio,
+                               'nombre_convenio'       VALUE c.nombre_convenio,
                                'modalidad'             VALUE h.modalidad,
                                'activo'        VALUE h.activo
                            )
@@ -139,9 +160,11 @@ CREATE OR REPLACE PACKAGE BODY pkgcn_franjas AS
                    RETURNING CLOB
                )
           INTO p_json_salida
-          FROM tkr_franjas_profesional h
-         WHERE h.id_usuario = p_id_usuario
-           AND h.activo = 1;
+          FROM tkr_franjas_profesional h,
+               tkr_convenios           c
+         WHERE c.id(+)      = h.id_convenio
+           AND h.id_usuario = p_id_usuario
+           AND h.activo     = 1;
     END p_consultar_franjas_json;
 
 END pkgcn_franjas;

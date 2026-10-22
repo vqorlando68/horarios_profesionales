@@ -2,7 +2,7 @@
 -- PROYECTO: horario-profesionales
 -- ARTEFACTO: nuevo.sql (Script Maestro Director)
 -- BASE DE DATOS: Oracle Database (TEKER)
--- FECHA: 14/10/2026
+-- FECHA: 20/10/2026
 -- DESCRIPCIÓN: Invoca secuencialmente mediante la directiva de SQL*Plus (@@)
 --              todos los scripts del proyecto: DDL, DAO, Capa Mono-Tabla (pkgca_),
 --              Casos de Negocio Multi-Tabla (pkgcn_) y Orquestador Transaccional (pkgln_).
@@ -41,6 +41,30 @@ PROMPT 5. COMPILANDO CUERPO MONO-TABLA: pkgca_tkr_horarios_profesional
 PROMPT =========================================================================
 @@pkgca_tkr_horarios_profesional.pkb
 SHOW ERRORS PACKAGE BODY pkgca_tkr_horarios_profesional;
+
+PROMPT =========================================================================
+PROMPT 5.1 COMPILANDO ESPECIFICACION MONO-TABLA: pkgca_tkr_festivos
+PROMPT =========================================================================
+@@pkgca_tkr_festivos.pks
+SHOW ERRORS PACKAGE pkgca_tkr_festivos;
+
+PROMPT =========================================================================
+PROMPT 5.2 COMPILANDO CUERPO MONO-TABLA: pkgca_tkr_festivos
+PROMPT =========================================================================
+@@pkgca_tkr_festivos.pkb
+SHOW ERRORS PACKAGE BODY pkgca_tkr_festivos;
+
+PROMPT =========================================================================
+PROMPT 5.3 COMPILANDO ESPECIFICACION MONO-TABLA: pkgca_tkr_ausencias_profesional
+PROMPT =========================================================================
+@@pkgca_tkr_ausencias_profesional.pks
+SHOW ERRORS PACKAGE pkgca_tkr_ausencias_profesional;
+
+PROMPT =========================================================================
+PROMPT 5.4 COMPILANDO CUERPO MONO-TABLA: pkgca_tkr_ausencias_profesional
+PROMPT =========================================================================
+@@pkgca_tkr_ausencias_profesional.pkb
+SHOW ERRORS PACKAGE BODY pkgca_tkr_ausencias_profesional;
 
 PROMPT =========================================================================
 PROMPT 6. COMPILANDO ESPECIFICACION CASOS DE NEGOCIO: PKGCN_HORARIOS

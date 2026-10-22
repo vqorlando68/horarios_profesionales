@@ -124,6 +124,7 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
         v_hora_hasta            VARCHAR2(10);
         v_tipo_atencion         VARCHAR2(10);
         v_modalidad             VARCHAR2(10);
+        v_id_convenio           NUMBER(12);
         v_fecha_inicial_str     VARCHAR2(30);
         v_fecha_final_str       VARCHAR2(30);
         v_fecha_inicial         DATE;
@@ -176,6 +177,12 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
                 v_hora_hasta        := TRIM(v_elem_franja.get_string('hora_hasta'));
                 v_fecha_inicial_str := TRIM(v_elem_franja.get_string('fecha_inicial'));
                 v_fecha_final_str   := TRIM(v_elem_franja.get_string('fecha_final'));
+
+                IF v_elem_franja.has('id_convenio') AND NOT v_elem_franja.get('id_convenio').is_null THEN
+                    v_id_convenio := v_elem_franja.get_number('id_convenio');
+                ELSE
+                    v_id_convenio := NULL;
+                END IF;
 
                 IF v_elem_franja.has('id_tipo_aseguramiento') THEN
                     IF v_elem_franja.get_number('id_tipo_aseguramiento') NOT IN (1, 2) THEN
@@ -242,27 +249,39 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
                         v_comp_hasta    VARCHAR2(10)  := TRIM(v_comp_elem.get_string('hora_hasta'));
                         v_comp_ini_str  VARCHAR2(30)  := TRIM(v_comp_elem.get_string('fecha_inicial'));
                         v_comp_fin_str  VARCHAR2(30)  := TRIM(v_comp_elem.get_string('fecha_final'));
+                        v_comp_conv     NUMBER(12);
                         v_comp_ini      DATE;
                         v_comp_fin      DATE;
                         v_fin_eff_1     DATE;
                         v_fin_eff_2     DATE;
                     BEGIN
                         IF v_dia_semana = v_comp_dia THEN
-                            v_comp_ini  := f_parsear_fecha(v_comp_ini_str);
-                            v_comp_fin  := f_parsear_fecha(v_comp_fin_str);
-                            v_fin_eff_1 := NVL(v_fecha_final, TO_DATE('9999-12-31', 'YYYY-MM-DD'));
-                            v_fin_eff_2 := NVL(v_comp_fin, TO_DATE('9999-12-31', 'YYYY-MM-DD'));
+                            IF v_comp_elem.has('id_convenio') AND NOT v_comp_elem.get('id_convenio').is_null THEN
+                                v_comp_conv := v_comp_elem.get_number('id_convenio');
+                            ELSE
+                                v_comp_conv := NULL;
+                            END IF;
 
-                            IF (v_fecha_inicial <= v_fin_eff_2 AND v_fin_eff_1 >= v_comp_ini)
-                               AND (v_hora_desde < v_comp_hasta AND v_hora_hasta > v_comp_desde) THEN
-                                RAISE_APPLICATION_ERROR(
-                                    -20008,
-                                    'Existe cruce de franjas para el día '
-                                    || f_nombre_dia_semana(v_dia_semana)
-                                    || ': el turno de ' || v_hora_desde || ' a ' || v_hora_hasta
-                                    || ' se traslapa con el turno de ' || v_comp_desde || ' a ' || v_comp_hasta
-                                    || '. Ajuste las horas para que cada franja tenga un único tipo de atención.'
-                                );
+                            IF (
+                                (v_id_convenio IS NOT NULL AND v_comp_conv = v_id_convenio)
+                                OR (v_id_convenio IS NULL AND v_comp_conv IS NULL)
+                            ) THEN
+                                v_comp_ini  := f_parsear_fecha(v_comp_ini_str);
+                                v_comp_fin  := f_parsear_fecha(v_comp_fin_str);
+                                v_fin_eff_1 := NVL(v_fecha_final, TO_DATE('9999-12-31', 'YYYY-MM-DD'));
+                                v_fin_eff_2 := NVL(v_comp_fin, TO_DATE('9999-12-31', 'YYYY-MM-DD'));
+
+                                IF (v_fecha_inicial <= v_fin_eff_2 AND v_fin_eff_1 >= v_comp_ini)
+                                   AND (v_hora_desde < v_comp_hasta AND v_hora_hasta > v_comp_desde) THEN
+                                    RAISE_APPLICATION_ERROR(
+                                        -20008,
+                                        'Existe cruce de franjas para el día '
+                                        || f_nombre_dia_semana(v_dia_semana)
+                                        || ': el turno de ' || v_hora_desde || ' a ' || v_hora_hasta
+                                        || ' se traslapa con el turno de ' || v_comp_desde || ' a ' || v_comp_hasta
+                                        || '. Ajuste las horas para que cada franja tenga un único tipo de atención.'
+                                    );
+                                END IF;
                             END IF;
                         END IF;
                     END;
@@ -311,6 +330,10 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
                 v_fecha_final_str   := TRIM(v_elem_franja.get_string('fecha_final'));
                 v_fecha_inicial     := f_parsear_fecha(v_fecha_inicial_str);
                 v_fecha_final       := f_parsear_fecha(v_fecha_final_str);
+                v_id_convenio       := NULL;
+                IF v_elem_franja.has('id_convenio') AND NOT v_elem_franja.get('id_convenio').is_null THEN
+                    v_id_convenio := v_elem_franja.get_number('id_convenio');
+                END IF;
 
                 IF pkgcn_franjas.f_existe_traslape_franja(
                        p_id_usuario    => v_id_usuario,
@@ -318,7 +341,8 @@ CREATE OR REPLACE PACKAGE BODY pkgln_franjas AS
                        p_hora_desde    => v_hora_desde,
                        p_hora_hasta    => v_hora_hasta,
                        p_fecha_inicial => v_fecha_inicial,
-                       p_fecha_final   => v_fecha_final
+                       p_fecha_final   => v_fecha_final,
+                       p_id_convenio   => v_id_convenio
                    ) THEN
                     RAISE_APPLICATION_ERROR(
                         -20009,

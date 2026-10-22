@@ -38,5 +38,21 @@ AS
         p_fecha_inicial IN DATE,
         p_fecha_final   IN DATE
     ) RETURN BOOLEAN;
+
+    /*
+          Nombre       : f_contar_ausencias_rango
+          Descripción  : Función para contar la cantidad de ausencias registradas 
+                         para un profesional que se intersecten con un rango de fechas.
+          -----------------------------------------------------------------------
+          Control de modificaciones
+          Fecha        Efectuadas por                     Descripción
+          ----------   ---------------   ----------------------------------------
+          20/10/2026   OAVQ              1. Creación
+    */
+    FUNCTION f_contar_ausencias_rango (
+        p_id_usuario    IN NUMBER,
+        p_fecha_inicial IN DATE,
+        p_fecha_final   IN DATE
+    ) RETURN NUMBER;
 END pkgca_tkr_ausencias_profesional;
 /

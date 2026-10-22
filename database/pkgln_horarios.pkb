@@ -21,32 +21,24 @@ AS
         COMMIT;
     END p_do_commit;
 
-    -- Función utilitaria interna para parsear fechas ISO
+    -- Función utilitaria interna para parsear fechas estándar YYYY-MM-DD
     FUNCTION f_parsear_fecha (
         p_str_fecha IN VARCHAR2
     ) RETURN DATE IS
-        v_fecha  DATE;
         v_limpia VARCHAR2(50);
     BEGIN
-        IF p_str_fecha IS NULL THEN
+        IF p_str_fecha IS NULL OR TRIM(p_str_fecha) = '' OR TRIM(p_str_fecha) = 'null' OR TRIM(p_str_fecha) = 'undefined' THEN
             RETURN NULL;
         END IF;
 
-        v_limpia := SUBSTR(TRIM(p_str_fecha), 1, 10);
+        v_limpia := TRIM(p_str_fecha);
 
         BEGIN
-            v_fecha := TO_DATE(v_limpia, 'YYYY-MM-DD');
+            RETURN TRUNC(TO_DATE(v_limpia, 'YYYY-MM-DD'));
         EXCEPTION
             WHEN OTHERS THEN
-                BEGIN
-                    v_fecha := TO_DATE(SUBSTR(TRIM(p_str_fecha), 1, 19), 'YYYY-MM-DD"T"HH24:MI:SS');
-                EXCEPTION
-                    WHEN OTHERS THEN
-                        v_fecha := TO_DATE(SUBSTR(TRIM(p_str_fecha), 1, 19), 'YYYY-MM-DD HH24:MI:SS');
-                END;
+                RAISE_APPLICATION_ERROR(-20005, 'Formato de fecha inválido (' || p_str_fecha || '). Se espera YYYY-MM-DD.');
         END;
-
-        RETURN TRUNC(v_fecha);
     END f_parsear_fecha;
 
     -- Función utilitaria interna para obtener el nombre legible del día
@@ -65,6 +57,31 @@ AS
             ELSE RETURN NVL(p_dia_semana, '');
         END CASE;
     END f_nombre_dia_semana;
+
+    -- Función utilitaria interna para limpiar y formatear mensajes de error para el usuario final
+    FUNCTION f_limpiar_mensaje_error (
+        p_sqlerrm IN VARCHAR2
+    ) RETURN VARCHAR2 IS
+        v_limpio VARCHAR2(4000);
+    BEGIN
+        v_limpio := NVL(p_sqlerrm, 'Error al procesar la operación.');
+        v_limpio := REGEXP_REPLACE(v_limpio, '^ORA-[0-9]{5}:\s*', '');
+        v_limpio := TRIM(v_limpio);
+        RETURN v_limpio;
+    END f_limpiar_mensaje_error;
+
+    -- Función utilitaria interna para construir JSON de error seguro para PL/SQL
+    FUNCTION f_formatear_error_json (
+        p_codigo  IN NUMBER,
+        p_sqlerrm IN VARCHAR2
+    ) RETURN CLOB IS
+        v_obj JSON_OBJECT_T;
+    BEGIN
+        v_obj := JSON_OBJECT_T();
+        v_obj.put('codigo', p_codigo);
+        v_obj.put('mensaje', f_limpiar_mensaje_error(p_sqlerrm));
+        RETURN v_obj.to_clob();
+    END f_formatear_error_json;
 
     -- 1. Listar profesionales habilitados
     PROCEDURE p_listar_profesionales (
@@ -97,7 +114,8 @@ AS
         WHEN OTHERS THEN
             ROLLBACK;
             IF SQLCODE BETWEEN -20999 AND -20001 THEN
-                RAISE;
+                p_json_salida := f_formatear_error_json(SQLCODE, SQLERRM);
+                RETURN;
             END IF;
 
             vro_error.tipo            := 'E';
@@ -127,6 +145,8 @@ AS
         v_obj_in                JSON_OBJECT_T;
         v_arr_horarios          JSON_ARRAY_T;
         v_elem_horario          JSON_OBJECT_T;
+        v_arr_festivos          JSON_ARRAY_T;
+        v_elem_fest             JSON_OBJECT_T;
         v_id_usuario            NUMBER(12);
         v_reemplazar_todo       NUMBER(1) := 1;
         v_reemplazar_vigencia   NUMBER(1) := 0;
@@ -139,12 +159,20 @@ AS
         v_hora_desde            VARCHAR2(10);
         v_hora_hasta            VARCHAR2(10);
         v_tipo_atencion         VARCHAR2(10);
+        v_id_convenio           NUMBER;
         v_fecha_inicial_str     VARCHAR2(30);
         v_fecha_final_str       VARCHAR2(30);
         v_fecha_inicial         DATE;
         v_fecha_final           DATE;
         v_fecha_ini_lote        DATE;
         v_fecha_fin_lote        DATE;
+        v_fin_lote_eff          DATE;
+        v_fecha_fest_str        VARCHAR2(30);
+        v_nombre_fest           VARCHAR2(250);
+        v_fecha_fest            DATE;
+        v_ausencias_creadas     NUMBER := 0;
+        v_ausencias_existentes  NUMBER := 0;
+        vro_ausencia            tkr_ausencias_profesional%ROWTYPE;
         v_resp_obj              JSON_OBJECT_T;
     BEGIN
         IF p_json_entrada IS NULL THEN
@@ -172,7 +200,7 @@ AS
                 v_tiene_orig     := TRUE;
             EXCEPTION
                 WHEN OTHERS THEN
-                    RAISE_APPLICATION_ERROR(-20005, 'Formato inválido en fecha_inicial_origen (' || v_fecha_ini_orig_str || ').');
+                    RAISE_APPLICATION_ERROR(-20005, 'Formato inválido en fecha_inicial_origen (' || v_fecha_ini_orig_str || '). Se espera YYYY-MM-DD.');
             END;
 
             IF v_fecha_fin_orig_str IS NOT NULL AND v_fecha_fin_orig_str <> 'null' AND v_fecha_fin_orig_str <> 'undefined' THEN
@@ -180,7 +208,7 @@ AS
                     v_fecha_fin_orig := TO_DATE(v_fecha_fin_orig_str, 'YYYY-MM-DD');
                 EXCEPTION
                     WHEN OTHERS THEN
-                        RAISE_APPLICATION_ERROR(-20006, 'Formato inválido en fecha_final_origen (' || v_fecha_fin_orig_str || ').');
+                        RAISE_APPLICATION_ERROR(-20006, 'Formato inválido en fecha_final_origen (' || v_fecha_fin_orig_str || '). Se espera YYYY-MM-DD.');
                 END;
             ELSE
                 v_fecha_fin_orig := NULL;
@@ -201,6 +229,10 @@ AS
                 v_hora_hasta        := TRIM(v_elem_horario.get_string('hora_hasta'));
                 v_fecha_inicial_str := TRIM(v_elem_horario.get_string('fecha_inicial'));
                 v_fecha_final_str   := TRIM(v_elem_horario.get_string('fecha_final'));
+                v_id_convenio       := NULL;
+                IF v_elem_horario.has('id_convenio') AND NOT v_elem_horario.get('id_convenio').is_null THEN
+                    v_id_convenio := v_elem_horario.get_number('id_convenio');
+                END IF;
 
                 IF v_dia_semana NOT IN ('LU', 'MA', 'MI', 'JU', 'VI', 'SA', 'DO') THEN
                     RAISE_APPLICATION_ERROR(-20002, 'Día de la semana inválido (' || v_dia_semana || '). Debe ser LU, MA, MI, JU, VI, SA o DO.');
@@ -263,11 +295,16 @@ AS
                         v_comp_hasta    VARCHAR2(10)  := TRIM(v_comp_elem.get_string('hora_hasta'));
                         v_comp_ini_str  VARCHAR2(30)  := TRIM(v_comp_elem.get_string('fecha_inicial'));
                         v_comp_fin_str  VARCHAR2(30)  := TRIM(v_comp_elem.get_string('fecha_final'));
+                        v_comp_conv     NUMBER        := NULL;
                         v_comp_ini      DATE;
                         v_comp_fin      DATE;
                         v_fin_eff_1     DATE;
                         v_fin_eff_2     DATE;
                     BEGIN
+                        IF v_comp_elem.has('id_convenio') AND NOT v_comp_elem.get('id_convenio').is_null THEN
+                            v_comp_conv := v_comp_elem.get_number('id_convenio');
+                        END IF;
+
                         IF v_dia_semana = v_comp_dia THEN
                             v_comp_ini := TO_DATE(v_comp_ini_str, 'YYYY-MM-DD');
                             IF v_comp_fin_str IS NOT NULL THEN
@@ -282,24 +319,64 @@ AS
                             -- Se solapan si las vigencias de fechas coinciden Y las horas coinciden
                             IF (v_fecha_inicial <= v_fin_eff_2 AND v_fin_eff_1 >= v_comp_ini)
                                AND (v_hora_desde < v_comp_hasta AND v_hora_hasta > v_comp_desde) THEN
-                                RAISE_APPLICATION_ERROR(
-                                    -20008,
-                                    'Existe cruce de horarios para el día '
-                                    || f_nombre_dia_semana(v_dia_semana)
-                                    || ': el turno de ' || v_hora_desde || ' a ' || v_hora_hasta
-                                    || ' se traslapa con el turno de ' || v_comp_desde || ' a ' || v_comp_hasta
-                                    || ' en la vigencia del ' || v_fecha_inicial_str
-                                    || CASE 
-                                           WHEN v_fecha_final_str IS NOT NULL THEN ' al ' || v_fecha_final_str 
-                                           ELSE ' en adelante (indefinida)'
-                                       END || '. Por favor ajuste las horas para que no se superpongan.'
-                                );
+                                -- Prioridad de convenio: una franja con id_convenio prevalece sobre null.
+                                -- Solo hay conflicto si ambos son específicos o ambos son generales.
+                                IF (v_id_convenio IS NULL AND v_comp_conv IS NULL)
+                                   OR (v_id_convenio IS NOT NULL AND v_comp_conv IS NOT NULL) THEN
+                                    RAISE_APPLICATION_ERROR(
+                                        -20008,
+                                        'Existe cruce de horarios para el día '
+                                        || f_nombre_dia_semana(v_dia_semana)
+                                        || ': el turno de ' || v_hora_desde || ' a ' || v_hora_hasta
+                                        || ' se traslapa con el turno de ' || v_comp_desde || ' a ' || v_comp_hasta
+                                        || ' en la vigencia del ' || v_fecha_inicial_str
+                                        || CASE 
+                                               WHEN v_fecha_final_str IS NOT NULL THEN ' al ' || v_fecha_final_str 
+                                               ELSE ' en adelante (indefinida)'
+                                           END || '. Por favor ajuste las horas para que no se superpongan.'
+                                    );
+                                END IF;
                             END IF;
                         END IF;
                     END;
                 END LOOP;
 
             END LOOP;
+        END IF;
+
+        -- Fase 1.1: Validación de festivos_no_laborables si viene informado en el payload
+        IF v_obj_in.has('festivos_no_laborables') THEN
+            v_arr_festivos := v_obj_in.get_array('festivos_no_laborables');
+            IF v_arr_festivos IS NOT NULL AND v_arr_festivos.get_size > 0 THEN
+                v_fin_lote_eff := NVL(v_fecha_fin_lote, TO_DATE('9999-12-31', 'YYYY-MM-DD'));
+                FOR k IN 0 .. v_arr_festivos.get_size - 1 LOOP
+                    v_elem_fest      := JSON_OBJECT_T(v_arr_festivos.get(k));
+                    v_fecha_fest_str := TRIM(v_elem_fest.get_string('fecha'));
+                    v_nombre_fest    := TRIM(v_elem_fest.get_string('nombre'));
+
+                    BEGIN
+                        v_fecha_fest := TO_DATE(v_fecha_fest_str, 'YYYY-MM-DD');
+                    EXCEPTION
+                        WHEN OTHERS THEN
+                            RAISE_APPLICATION_ERROR(-20012, 'La fecha ' || v_fecha_fest_str || ' no es un festivo dentro del rango del horario.');
+                    END;
+
+                    -- Regla: No se aceptan domingos en el arreglo (los domingos se manejan en la grilla semanal)
+                    IF TO_CHAR(v_fecha_fest, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') = 'SUN' THEN
+                        RAISE_APPLICATION_ERROR(-20013, 'Los domingos no se registran como festivo no laborable.');
+                    END IF;
+
+                    -- Regla: Cada fecha debe estar dentro de [fecha_inicial, fecha_final] del lote
+                    IF v_fecha_ini_lote IS NULL OR (v_fecha_fest < v_fecha_ini_lote OR v_fecha_fest > v_fin_lote_eff) THEN
+                        RAISE_APPLICATION_ERROR(-20012, 'La fecha ' || v_fecha_fest_str || ' no es un festivo dentro del rango del horario.');
+                    END IF;
+
+                    -- Regla: Debe existir en tkr_festivos con id_pais = 1
+                    IF NOT pkgca_tkr_festivos.f_es_festivo(p_fecha => v_fecha_fest, p_id_pais => 1) THEN
+                        RAISE_APPLICATION_ERROR(-20012, 'La fecha ' || v_fecha_fest_str || ' no es un festivo dentro del rango del horario.');
+                    END IF;
+                END LOOP;
+            END IF;
         END IF;
 
         -- Fase 2: Borrado previo controlado según el alcance de la operación
@@ -336,7 +413,6 @@ AS
         END IF;
 
         -- 3.2 Validación contra los horarios restantes en BD: solo aplica para Horarios Personalizados (con fecha final)
-        -- Los horarios sin fecha final (Horario Base) no realizan validaciones contra horarios con fecha final
         IF v_reemplazar_todo = 0 AND v_fecha_fin_lote IS NOT NULL AND v_arr_horarios IS NOT NULL THEN
             FOR i IN 0 .. v_arr_horarios.get_size - 1 LOOP
                 v_elem_horario      := JSON_OBJECT_T(v_arr_horarios.get(i));
@@ -352,13 +428,19 @@ AS
                     v_fecha_final := NULL;
                 END IF;
 
+                v_id_convenio := NULL;
+                IF v_elem_horario.has('id_convenio') AND NOT v_elem_horario.get('id_convenio').is_null THEN
+                    v_id_convenio := v_elem_horario.get_number('id_convenio');
+                END IF;
+
                 IF PKGCN_HORARIOS.f_existe_traslape_horario(
                        p_id_usuario    => v_id_usuario,
                        p_dia_semana    => v_dia_semana,
                        p_hora_desde    => v_hora_desde,
                        p_hora_hasta    => v_hora_hasta,
                        p_fecha_inicial => v_fecha_inicial,
-                       p_fecha_final   => v_fecha_final
+                       p_fecha_final   => v_fecha_final,
+                       p_id_convenio   => v_id_convenio
                    ) THEN
                     RAISE_APPLICATION_ERROR(
                         -20009,
@@ -378,6 +460,34 @@ AS
             );
         END IF;
 
+        -- Fase 4.1: Inserción de ausencias para festivos_no_laborables en la misma transacción
+        IF v_arr_festivos IS NOT NULL AND v_arr_festivos.get_size > 0 THEN
+            FOR k IN 0 .. v_arr_festivos.get_size - 1 LOOP
+                v_elem_fest      := JSON_OBJECT_T(v_arr_festivos.get(k));
+                v_fecha_fest_str := TRIM(v_elem_fest.get_string('fecha'));
+                v_nombre_fest    := TRIM(v_elem_fest.get_string('nombre'));
+                v_fecha_fest     := TO_DATE(v_fecha_fest_str, 'YYYY-MM-DD');
+
+                -- Validar si ya está cubierta por una ausencia existente (no duplicar)
+                IF pkgca_tkr_ausencias_profesional.f_existe_ausencia(
+                       p_id_usuario    => v_id_usuario,
+                       p_fecha_inicial => v_fecha_fest,
+                       p_fecha_final   => v_fecha_fest
+                   ) THEN
+                    v_ausencias_existentes := v_ausencias_existentes + 1;
+                ELSE
+                    vro_ausencia.id             := NULL;
+                    vro_ausencia.id_usuario     := v_id_usuario;
+                    vro_ausencia.fecha_inicial  := v_fecha_fest;
+                    vro_ausencia.fecha_final    := v_fecha_fest;
+                    vro_ausencia.fecha_creacion := SYSDATE;
+
+                    PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar(vro_ausencia);
+                    v_ausencias_creadas := v_ausencias_creadas + 1;
+                END IF;
+            END LOOP;
+        END IF;
+
         -- Fase 5: Confirmación transaccional controlada
         p_do_commit('PKGLN_HORARIOS.p_guardar_horarios');
 
@@ -386,13 +496,24 @@ AS
         v_resp_obj.put('codigo', 0);
         v_resp_obj.put('mensaje', 'Horarios del profesional guardados exitosamente.');
         v_resp_obj.put('id_usuario', v_id_usuario);
+        v_resp_obj.put('ausencias_creadas', v_ausencias_creadas);
+        v_resp_obj.put('ausencias_existentes', v_ausencias_existentes);
         p_json_salida := v_resp_obj.to_clob();
 
     EXCEPTION
         WHEN OTHERS THEN
             ROLLBACK;
+
+            -- Devolver error de negocio controlado (-20001 a -20999) en p_json_salida con texto limpio
             IF SQLCODE BETWEEN -20999 AND -20001 THEN
-                RAISE;
+                v_resp_obj := JSON_OBJECT_T();
+                v_resp_obj.put('codigo', SQLCODE);
+                v_resp_obj.put('mensaje', f_limpiar_mensaje_error(SQLERRM));
+                v_resp_obj.put('id_usuario', v_id_usuario);
+                v_resp_obj.put('ausencias_creadas', 0);
+                v_resp_obj.put('ausencias_existentes', 0);
+                p_json_salida := v_resp_obj.to_clob();
+                RETURN;
             END IF;
 
             vro_error.tipo            := 'E';
@@ -405,13 +526,15 @@ AS
 
             uti_ge_excepciones_pkg.p_grabar_log(vro_error);
 
-            RAISE_APPLICATION_ERROR(
-                -20000,
+            v_resp_obj := JSON_OBJECT_T();
+            v_resp_obj.put('codigo', -20000);
+            v_resp_obj.put(
+                'mensaje',
                 'Se presento un error comunicarse con soporte. Número error: '
                 || vro_error.id
-                || ' - '
-                || SQLERRM
             );
+            v_resp_obj.put('id_usuario', v_id_usuario);
+            p_json_salida := v_resp_obj.to_clob();
     END p_guardar_horarios;
 
     -- 3. Consultar agenda completa de un profesional
@@ -443,7 +566,8 @@ AS
         WHEN OTHERS THEN
             ROLLBACK;
             IF SQLCODE BETWEEN -20999 AND -20001 THEN
-                RAISE;
+                p_json_salida := f_formatear_error_json(SQLCODE, SQLERRM);
+                RETURN;
             END IF;
 
             vro_error.tipo            := 'E';
@@ -544,7 +668,12 @@ AS
         WHEN OTHERS THEN
             ROLLBACK;
             IF SQLCODE BETWEEN -20999 AND -20001 THEN
-                RAISE;
+                v_resp_obj := JSON_OBJECT_T();
+                v_resp_obj.put('codigo', SQLCODE);
+                v_resp_obj.put('mensaje', f_limpiar_mensaje_error(SQLERRM));
+                v_resp_obj.put('id_usuario', v_id_usuario);
+                p_json_salida := v_resp_obj.to_clob();
+                RETURN;
             END IF;
 
             vro_error.tipo            := 'E';
@@ -557,13 +686,15 @@ AS
 
             uti_ge_excepciones_pkg.p_grabar_log(vro_error);
 
-            RAISE_APPLICATION_ERROR(
-                -20000,
+            v_resp_obj := JSON_OBJECT_T();
+            v_resp_obj.put('codigo', -20000);
+            v_resp_obj.put(
+                'mensaje',
                 'Se presento un error comunicarse con soporte. Número error: '
                 || vro_error.id
-                || ' - '
-                || SQLERRM
             );
+            v_resp_obj.put('id_usuario', v_id_usuario);
+            p_json_salida := v_resp_obj.to_clob();
     END p_registrar_ausencia;
 
     -- 5. Consultar ausencias
@@ -616,7 +747,8 @@ AS
         WHEN OTHERS THEN
             ROLLBACK;
             IF SQLCODE BETWEEN -20999 AND -20001 THEN
-                RAISE;
+                p_json_salida := f_formatear_error_json(SQLCODE, SQLERRM);
+                RETURN;
             END IF;
 
             vro_error.tipo            := 'E';
@@ -650,6 +782,7 @@ AS
         v_trabaja_festivos VARCHAR2(10);
         v_fecha_inicial    DATE;
         v_fecha_final      DATE;
+        v_cant_ausencias   NUMBER := 0;
         v_resp_obj         JSON_OBJECT_T;
     BEGIN
         IF p_json_entrada IS NULL THEN
@@ -677,16 +810,14 @@ AS
             v_fecha_final := NULL;
         END IF;
 
-        -- Si es un horario personalizado y el usuario no labora festivos, borrar festivos de ausencias no solapados
-        IF v_fecha_final IS NOT NULL AND UPPER(TRIM(v_trabaja_festivos)) = 'N' THEN
-            PKGCN_HORARIOS.p_eliminar_ausencias_festivos_vigencia(
-                p_id_usuario    => v_id_usuario,
-                p_fecha_inicial => v_fecha_inicial,
-                p_fecha_final   => v_fecha_final
-            );
-        END IF;
+        -- Verificar si existen ausencias registradas para ese periodo para informar al usuario
+        v_cant_ausencias := pkgca_tkr_ausencias_profesional.f_contar_ausencias_rango(
+            p_id_usuario    => v_id_usuario,
+            p_fecha_inicial => v_fecha_inicial,
+            p_fecha_final   => v_fecha_final
+        );
 
-        -- Delegación a pkgca_tkr_horarios_profesional
+        -- Delegación del borrado de horarios a pkgca_tkr_horarios_profesional
         pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas(
             p_id_usuario    => v_id_usuario,
             p_fecha_inicial => v_fecha_inicial,
@@ -697,7 +828,20 @@ AS
 
         v_resp_obj := JSON_OBJECT_T();
         v_resp_obj.put('codigo', 0);
-        v_resp_obj.put('mensaje', 'Horarios de la vigencia eliminados exitosamente.');
+        IF v_cant_ausencias > 0 THEN
+            v_resp_obj.put('tiene_ausencias', 1);
+            v_resp_obj.put('cantidad_ausencias', v_cant_ausencias);
+            v_resp_obj.put(
+                'mensaje',
+                'Horarios de la vigencia eliminados exitosamente. Tenga en cuenta que existen '
+                || v_cant_ausencias
+                || ' ausencia(s) registrada(s) para este período; por favor verifique si amerita eliminarlas.'
+            );
+        ELSE
+            v_resp_obj.put('tiene_ausencias', 0);
+            v_resp_obj.put('cantidad_ausencias', 0);
+            v_resp_obj.put('mensaje', 'Horarios de la vigencia eliminados exitosamente.');
+        END IF;
         v_resp_obj.put('id_usuario', v_id_usuario);
         p_json_salida := v_resp_obj.to_clob();
 
@@ -705,7 +849,12 @@ AS
         WHEN OTHERS THEN
             ROLLBACK;
             IF SQLCODE BETWEEN -20999 AND -20001 THEN
-                RAISE;
+                v_resp_obj := JSON_OBJECT_T();
+                v_resp_obj.put('codigo', SQLCODE);
+                v_resp_obj.put('mensaje', f_limpiar_mensaje_error(SQLERRM));
+                v_resp_obj.put('id_usuario', v_id_usuario);
+                p_json_salida := v_resp_obj.to_clob();
+                RETURN;
             END IF;
 
             vro_error.tipo            := 'E';
@@ -718,13 +867,15 @@ AS
 
             uti_ge_excepciones_pkg.p_grabar_log(vro_error);
 
-            RAISE_APPLICATION_ERROR(
-                -20000,
+            v_resp_obj := JSON_OBJECT_T();
+            v_resp_obj.put('codigo', -20000);
+            v_resp_obj.put(
+                'mensaje',
                 'Se presento un error comunicarse con soporte. Número error: '
                 || vro_error.id
-                || ' - '
-                || SQLERRM
             );
+            v_resp_obj.put('id_usuario', v_id_usuario);
+            p_json_salida := v_resp_obj.to_clob();
     END p_eliminar_horarios_vigencia;
 
     -- 8. Actualizar trabaja_festivos de un profesional y limpiar domingos si aplica
@@ -786,7 +937,8 @@ AS
         WHEN OTHERS THEN
             ROLLBACK;
             IF SQLCODE BETWEEN -20999 AND -20001 THEN
-                RAISE;
+                p_json_salida := f_formatear_error_json(SQLCODE, SQLERRM);
+                RETURN;
             END IF;
 
             vro_error.tipo            := 'E';

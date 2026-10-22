@@ -19,10 +19,27 @@ AS
           INTO v_cant
           FROM tkr_ausencias_profesional a
          WHERE a.id_usuario = p_id_usuario
-           AND a.fecha_inicial <= p_fecha_final
+           AND a.fecha_inicial <= NVL(p_fecha_final, TO_DATE('9999-12-31', 'YYYY-MM-DD'))
            AND a.fecha_final   >= p_fecha_inicial;
 
         RETURN (v_cant > 0);
     END f_existe_ausencia;
+
+    FUNCTION f_contar_ausencias_rango (
+        p_id_usuario    IN NUMBER,
+        p_fecha_inicial IN DATE,
+        p_fecha_final   IN DATE
+    ) RETURN NUMBER IS
+        v_cant NUMBER := 0;
+    BEGIN
+        SELECT COUNT(1)
+          INTO v_cant
+          FROM tkr_ausencias_profesional a
+         WHERE a.id_usuario = p_id_usuario
+           AND a.fecha_inicial <= NVL(p_fecha_final, TO_DATE('9999-12-31', 'YYYY-MM-DD'))
+           AND a.fecha_final   >= p_fecha_inicial;
+
+        RETURN v_cant;
+    END f_contar_ausencias_rango;
 END pkgca_tkr_ausencias_profesional;
 /

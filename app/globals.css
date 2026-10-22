@@ -1124,6 +1124,27 @@ body {
   color: #FFFFFF !important;
 }
 
+/* Warning / Advertencia - Modo Oscuro */
+.toast.warning {
+  background: #2E1F08 !important;
+  border: 1.5px solid #F59E0B !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 25px rgba(245, 158, 11, 0.3) !important;
+  color: #FFFFFF !important;
+}
+
+.toast.warning .toast-icon-badge {
+  background: rgba(245, 158, 11, 0.25);
+  color: #FBBF24;
+}
+
+.toast.warning .toast-title {
+  color: #FBBF24 !important;
+}
+
+.toast.warning .toast-message {
+  color: #FFFFFF !important;
+}
+
 /* -----------------------------------------------------------------------------
    TOASTS EN MODO CLARO (CONTRASTE MÁXIMO AAA)
    ----------------------------------------------------------------------------- */
@@ -1182,6 +1203,33 @@ body {
 }
 
 [data-theme="light"] .toast.error .toast-close-btn:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+/* Warning / Advertencia - Modo Claro */
+[data-theme="light"] .toast.warning {
+  background: #FFFFFF !important;
+  border: 1px solid #FDE68A !important;
+  border-left: 6px solid #D97706 !important;
+  color: #78350F !important;
+}
+
+[data-theme="light"] .toast.warning .toast-icon-badge {
+  background: #FEF3C7 !important;
+  color: #D97706 !important;
+}
+
+[data-theme="light"] .toast.warning .toast-title {
+  color: #B45309 !important;
+}
+
+[data-theme="light"] .toast.warning .toast-message {
+  color: #0F172A !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] .toast.warning .toast-close-btn:hover {
   background: #E2E8F0;
   color: #0F172A;
 }
@@ -1414,7 +1462,7 @@ body {
 
 .registered-days-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: 14px;
   margin-top: 6px;
 }
@@ -1428,6 +1476,8 @@ body {
   flex-direction: column;
   gap: 10px;
   transition: all var(--transition-fast);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .registered-day-group-card:hover {
@@ -1477,20 +1527,37 @@ body {
 .registered-turnos-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .registered-turno-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 10px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   font-size: 12.5px;
   color: #E2E8F0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.registered-turno-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.registered-turno-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .registered-turno-row strong {
@@ -4537,10 +4604,38 @@ input[type="time"]::-webkit-calendar-picker-indicator,
   letter-spacing: 0.4px;
 }
 
-[data-theme="light"] .tiempo-duracion-section-title {
-  color: #1E293B;
+/* =============================================================================
+   BADGES Y ETIQUETAS DE CONVENIOS (TKR_CONVENIOS)
+   ============================================================================= */
+.convenio-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  white-space: nowrap;
 }
 
+[data-theme="light"] .convenio-badge-pill {
+  background: #E0F2FE;
+  color: #0284C7;
+  border-color: #BAE6FD;
+}
 
+.convenio-badge-all {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.25);
+  font-weight: 500;
+}
 
-
+[data-theme="light"] .convenio-badge-all {
+  background: #F1F5F9;
+  color: #64748B;
+  border-color: #CBD5E1;
+}

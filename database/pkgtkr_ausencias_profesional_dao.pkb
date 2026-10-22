@@ -245,10 +245,16 @@ AS
         v_existe   NUMBER := 1;
 
         CURSOR cur_tkr_ausencias_profesional IS
-            SELECT json_object (*)
-              FROM (SELECT *
-                      FROM tkr_ausencias_profesional
-                     WHERE id = p_id);
+            SELECT JSON_OBJECT(
+                       'id'             VALUE a.id,
+                       'id_usuario'     VALUE a.id_usuario,
+                       'fecha_inicial'  VALUE TO_CHAR(a.fecha_inicial, 'YYYY-MM-DD'),
+                       'fecha_final'    VALUE TO_CHAR(a.fecha_final, 'YYYY-MM-DD'),
+                       'fecha_creacion' VALUE TO_CHAR(a.fecha_creacion, 'YYYY-MM-DD')
+                       RETURNING CLOB
+                   )
+              FROM tkr_ausencias_profesional a
+             WHERE a.id = p_id;
     BEGIN
         OPEN cur_tkr_ausencias_profesional;
         FETCH cur_tkr_ausencias_profesional INTO p_json_tkr_ausencias_profesional;
@@ -267,10 +273,15 @@ AS
         v_json    VARCHAR2(32000);
 
         CURSOR cur_tkr_ausencias_profesional IS
-            SELECT json_object (*)
-              FROM (SELECT *
-                      FROM tkr_ausencias_profesional
-                     WHERE id = p_id);
+            SELECT JSON_OBJECT(
+                       'id'             VALUE a.id,
+                       'id_usuario'     VALUE a.id_usuario,
+                       'fecha_inicial'  VALUE TO_CHAR(a.fecha_inicial, 'YYYY-MM-DD'),
+                       'fecha_final'    VALUE TO_CHAR(a.fecha_final, 'YYYY-MM-DD'),
+                       'fecha_creacion' VALUE TO_CHAR(a.fecha_creacion, 'YYYY-MM-DD')
+                   )
+              FROM tkr_ausencias_profesional a
+             WHERE a.id = p_id;
     BEGIN
         OPEN cur_tkr_ausencias_profesional;
         FETCH cur_tkr_ausencias_profesional INTO v_json;

@@ -34,8 +34,19 @@ import {
   AlertTriangle,
   HelpCircle,
   BookOpen,
-  Layers
+  Layers,
+  Briefcase,
+  Lock
 } from 'lucide-react';
+
+interface Convenio {
+  id: number;
+  nombre_convenio: string;
+  id_entidad_hijo?: number | null;
+  tipo_aseguramiento?: string | null;
+  id_tipo_aseguramiento?: number | null;
+  tipo_atencion?: string | null;
+}
 
 interface Profesional {
   id_usuario: number;
@@ -54,6 +65,7 @@ interface TurnoHorario {
   idTemp: string;
   hora_desde: string;
   hora_hasta: string;
+  id_convenio?: number | null;
 }
 
 interface DiaConfig {
@@ -68,6 +80,8 @@ interface HorarioRegistrado {
   hora_hasta: string;
   fecha_inicial: string;
   fecha_final: string | null;
+  id_convenio?: number | null;
+  nombre_convenio?: string | null;
   activo?: number;
 }
 
@@ -95,6 +109,7 @@ interface FranjaHorario {
   id_tipo_aseguramiento: number;
   tipo_atencion?: TipoAtencion;
   modalidad?: ModalidadAtencion;
+  id_convenio?: number | null;
 }
 
 interface DiaConfigFranja {
@@ -113,6 +128,8 @@ interface FranjaRegistrada {
   tipo_atencion?: TipoAtencion;
   tipo_aseguramiento?: string;
   modalidad?: ModalidadAtencion;
+  id_convenio?: number | null;
+  nombre_convenio?: string | null;
   activo?: number;
 }
 
@@ -221,6 +238,7 @@ export default function HorariosPage() {
   const [franjasRegistradas, setFranjasRegistradas] = useState<FranjaRegistrada[]>([]);
   const [expandidoFranjasRegistradas, setExpandidoFranjasRegistradas] = useState<boolean>(true);
   const [ausencias, setAusencias] = useState<Ausencia[]>([]);
+  const [convenios, setConvenios] = useState<Convenio[]>([]);
     // Estados de Tiempos de Atención
   const [tiemposAtencion, setTiemposAtencion] = useState<TiempoAtencionItem[]>([
     { id_tipo_aseguramiento: 1, tipo_aseguramiento: 'Voluntario', duracion: 20, duracion_domiciliaria: null, configurado: 0 },
@@ -316,7 +334,7 @@ export default function HorariosPage() {
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [guardandoFranjas, setGuardandoFranjas] = useState(false);
-  const [toast, setToast] = useState<{ tipo: 'success' | 'error'; mensaje: string } | null>(null);
+  const [toast, setToast] = useState<{ tipo: 'success' | 'error' | 'warning'; mensaje: string } | null>(null);
 
 
   // 1. Rango de Fechas para el Horario en Edición y Refs para Pickers
@@ -465,17 +483,30 @@ export default function HorariosPage() {
   };
 
   // Mostrar toast con tiempo suficiente de lectura y mensaje amigable
-  const notificar = (tipo: 'success' | 'error', mensaje: string) => {
+  const notificar = (tipo: 'success' | 'error' | 'warning', mensaje: string) => {
     const mensajeFinal = tipo === 'error' ? sanitizarMensaje(mensaje) : mensaje;
     setToast({ tipo, mensaje: mensajeFinal });
     setTimeout(() => setToast(null), 7000);
   };
 
-  // Cargar lista de profesionales y festivos al iniciar
+  // Cargar lista de profesionales, festivos y convenios al iniciar
   useEffect(() => {
     cargarProfesionales();
     cargarFestivos();
+    cargarConvenios();
   }, []);
+
+  const cargarConvenios = async () => {
+    try {
+      const res = await fetch(`/api/convenios?_t=${Date.now()}`);
+      const data = await res.json();
+      if (data && data.codigo === 0 && Array.isArray(data.convenios)) {
+        setConvenios(data.convenios);
+      }
+    } catch (err) {
+      console.warn('Error al cargar convenios:', err);
+    }
+  };
 
   const cargarFestivos = async () => {
     try {
@@ -911,6 +942,7 @@ export default function HorariosPage() {
               idTemp: Date.now().toString() + Math.random(),
               hora_desde: nuevaDesde,
               hora_hasta: nuevaHasta,
+              id_convenio: null,
             },
           ],
         },
@@ -937,8 +969,8 @@ export default function HorariosPage() {
   const actualizarTurno = (
     diaKey: string,
     index: number,
-    campo: 'hora_desde' | 'hora_hasta',
-    valor: string
+    campo: 'hora_desde' | 'hora_hasta' | 'id_convenio',
+    valor: any
   ) => {
     setDiasConfig((prev) => {
       const actual = prev[diaKey];
@@ -965,6 +997,7 @@ export default function HorariosPage() {
             idTemp: Date.now().toString() + idx + Math.random(),
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
+            id_convenio: t.id_convenio ?? null,
           })),
         };
       });
@@ -1024,6 +1057,7 @@ export default function HorariosPage() {
       hora_hasta: string;
       fecha_inicial: string;
       fecha_final: string | null;
+      id_convenio: number | null;
     }> = [];
 
     const diaKeyUnico = esHorarioPorDia ? obtenerKeyDiaSemana(fechaInicial) : null;
@@ -1041,12 +1075,16 @@ export default function HorariosPage() {
             notificar('error', `En ${dia.nombre}, la hora inicial (${t.hora_desde}) debe ser menor que la final (${t.hora_hasta}).`);
             return;
           }
+          const conv = t.id_convenio ? convenios.find((c) => c.id === Number(t.id_convenio)) : null;
           listaHorariosAplanada.push({
             dia_semana: dia.key,
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
             fecha_inicial: fechaInicial,
             fecha_final: esHorarioBaseAGuardar ? null : fechaFinalEfectiva,
+            id_convenio: t.id_convenio ? Number(t.id_convenio) : null,
+            id_tipo_aseguramiento: conv?.id_tipo_aseguramiento ?? null,
+            tipo_atencion: conv?.tipo_atencion ?? null,
           });
         }
       }
@@ -1094,7 +1132,10 @@ export default function HorariosPage() {
   };
 
   // Ejecución física del guardado de horarios en Oracle DB
-  const persistirHorarios = async (horariosAplanados?: any[]) => {
+  const persistirHorarios = async (
+    horariosAplanados?: any[],
+    festivosNoLaborables?: Array<{ fecha: string; nombre: string }>
+  ) => {
     if (!profesionalSeleccionado) return;
 
     const fechaFinalEfectiva = esHorarioPorDia ? fechaInicial : (esIndefinido ? '' : fechaFinal);
@@ -1109,12 +1150,16 @@ export default function HorariosPage() {
         const conf = diasConfig[dia.key];
         if (conf.activo && conf.turnos.length > 0) {
           for (const t of conf.turnos) {
+            const conv = t.id_convenio ? convenios.find((c) => c.id === Number(t.id_convenio)) : null;
             lista.push({
               dia_semana: dia.key,
               hora_desde: t.hora_desde,
               hora_hasta: t.hora_hasta,
               fecha_inicial: fechaInicial,
               fecha_final: esHorarioBaseAGuardar ? null : fechaFinalEfectiva,
+              id_convenio: t.id_convenio ? Number(t.id_convenio) : null,
+              id_tipo_aseguramiento: conv?.id_tipo_aseguramiento ?? null,
+              tipo_atencion: conv?.tipo_atencion ?? null,
             });
           }
         }
@@ -1130,6 +1175,7 @@ export default function HorariosPage() {
         fecha_inicial_origen: vigenciaEnEdicion ? vigenciaEnEdicion.fecha_inicial : null,
         fecha_final_origen: vigenciaEnEdicion ? vigenciaEnEdicion.fecha_final : null,
         horarios: lista,
+        festivos_no_laborables: festivosNoLaborables || [],
       };
 
       const res = await fetch('/api/horarios', {
@@ -1140,11 +1186,19 @@ export default function HorariosPage() {
 
       const data = await res.json();
       if (data && data.codigo === 0) {
-        const msjExito = vigenciaEnEdicion
+        let msjExito = vigenciaEnEdicion
           ? `¡Vigencia (${vigenciaEnEdicion.descripcion}) actualizada exitosamente en el Sistema!`
           : esHorarioPorDia
           ? `¡Horario por día (${fechaInicial}) guardado exitosamente en el Sistema!`
           : '¡Horarios para el rango guardados exitosamente en el Sistema!';
+
+        if (data.ausencias_creadas > 0) {
+          msjExito += ` Se crearon ${data.ausencias_creadas} bloqueo(s) por festivos no laborables.`;
+        }
+        if (data.ausencias_existentes > 0) {
+          msjExito += ` (${data.ausencias_existentes} festivo(s) ya tenían ausencia previa).`;
+        }
+
         notificar('success', msjExito);
         setVigenciaEnEdicion(null);
         await seleccionarProfesional(profesionalSeleccionado);
@@ -1159,52 +1213,20 @@ export default function HorariosPage() {
     }
   };
 
-  // Confirmar y registrar ausencias para los días festivos detectados en el rango
+  // Confirmar y registrar ausencias para los días festivos detectados en el rango (Atómico en la misma transacción)
   const confirmarGuardadoConAusenciasFestivos = async () => {
     if (!modalAdvertenciaFestivosRango || !profesionalSeleccionado) return;
-    setGuardando(true);
-    try {
-      let ausenciasCreadas = 0;
-      for (const festivo of modalAdvertenciaFestivosRango.festivos) {
-        // Solo registrar festivos que no sean domingo
-        if (festivo.esDomingo || obtenerKeyDiaSemana(festivo.fecha) === 'DO') {
-          continue;
-        }
-        const yaCubierto = ausencias.some(
-          (a) => festivo.fecha >= a.fecha_inicial && festivo.fecha <= a.fecha_final
-        );
-        if (!yaCubierto) {
-          try {
-            await fetch('/api/ausencias', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id_usuario: profesionalSeleccionado.id_usuario,
-                fecha_inicial: festivo.fecha,
-                fecha_final: festivo.fecha,
-                motivo: `Festivo no laborable: ${festivo.nombre}`,
-              }),
-            });
-            ausenciasCreadas++;
-          } catch (e) {
-            console.warn(`Error al registrar ausencia para festivo ${festivo.fecha}:`, e);
-          }
-        }
-      }
 
-      await persistirHorarios();
-      setModalAdvertenciaFestivosRango(null);
-      await seleccionarProfesional(profesionalSeleccionado);
-      notificar(
-        'success',
-        `Horarios guardados exitosamente. Se crearon ${ausenciasCreadas} bloqueo(s) por días festivos en la tabla de ausencias.`
-      );
-    } catch (err: any) {
-      console.error(err);
-      notificar('error', 'Ocurrió un error al procesar las ausencias o guardar los horarios.');
-    } finally {
-      setGuardando(false);
-    }
+    // Filtrar los festivos no laborables (los domingos se manejan en la grilla semanal)
+    const festivosParaPayload = modalAdvertenciaFestivosRango.festivos
+      .filter((f) => !f.esDomingo && obtenerKeyDiaSemana(f.fecha) !== 'DO')
+      .map((f) => ({
+        fecha: f.fecha,
+        nombre: f.nombre,
+      }));
+
+    setModalAdvertenciaFestivosRango(null);
+    await persistirHorarios(undefined, festivosParaPayload);
   };
 
   // El usuario decide en el modal cambiar a que SÍ trabajará festivos
@@ -1320,36 +1342,6 @@ export default function HorariosPage() {
         params.append('fecha_final', fechaFinElim);
       }
 
-      // Si es un horario personalizado y el profesional no trabaja festivos, limpiar ausencias de festivos que no solapen con otras vigencias personalizadas que quedan
-      if (fechaFinElim && (profesionalSeleccionado.trabaja_festivos || 'N') === 'N') {
-        const otrosPersonalizados = periodosRegistrados.filter(
-          (p) => p.fecha_final !== null && !(p.fecha_inicial === fechaIniElim && p.fecha_final === fechaFinElim)
-        );
-
-        const ausenciasFestivasABorrar = ausencias.filter((a) => {
-          if (!a.id) return false;
-          const dentroRango = a.fecha_inicial >= fechaIniElim && a.fecha_final <= fechaFinElim;
-          if (!dentroRango) return false;
-
-          const esFestivo = mapaFestivos.has(a.fecha_inicial) || (a.motivo && a.motivo.toLowerCase().includes('festivo'));
-          if (!esFestivo) return false;
-
-          // Verificar si el día está cubierto por algún otro personalizado que quede
-          const cubiertoPorOtro = otrosPersonalizados.some(
-            (p) => p.fecha_final && a.fecha_inicial <= p.fecha_final && a.fecha_final >= p.fecha_inicial
-          );
-          return !cubiertoPorOtro;
-        });
-
-        for (const aus of ausenciasFestivasABorrar) {
-          try {
-            await fetch(`/api/ausencias?id=${aus.id}`, { method: 'DELETE' });
-          } catch (e) {
-            console.warn(`Error eliminando ausencia festiva ${aus.id}:`, e);
-          }
-        }
-      }
-
       const res = await fetch(`/api/horarios?${params.toString()}`, {
         method: 'DELETE',
         headers: { 'Cache-Control': 'no-cache' },
@@ -1357,7 +1349,14 @@ export default function HorariosPage() {
 
       const data = await res.json();
       if (data && data.codigo === 0) {
-        notificar('success', `Vigencia ${vigenciaAEliminar.descripcion} eliminada exitosamente.`);
+        if (data.tiene_ausencias === 1 || (data.cantidad_ausencias && data.cantidad_ausencias > 0)) {
+          notificar(
+            'warning',
+            `Vigencia eliminada. Atención: Existen ${data.cantidad_ausencias} ausencia(s) registradas en este periodo. Si amerita, puede revisarlas y eliminarlas en la pestaña de Ausencias.`
+          );
+        } else {
+          notificar('success', `Vigencia ${vigenciaAEliminar.descripcion} eliminada exitosamente.`);
+        }
         setVigenciaAEliminar(null);
         await seleccionarProfesional(profesionalSeleccionado);
       } else {
@@ -1452,13 +1451,14 @@ export default function HorariosPage() {
             idTemp: `${dia.key}_edit_${idx}_${Date.now()}_${Math.random()}`,
             hora_desde: t.hora_desde,
             hora_hasta: t.hora_hasta,
+            id_convenio: t.id_convenio ?? null,
           })),
         };
       } else {
         nuevaConfigDias[dia.key] = {
           activo: false,
           turnos: [
-            { idTemp: `${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00' },
+            { idTemp: `${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', id_convenio: null },
           ],
         };
       }
@@ -1568,6 +1568,7 @@ export default function HorariosPage() {
               hora_hasta: nuevaHasta,
               id_tipo_aseguramiento: 1,
               tipo_atencion: 'V',
+              id_convenio: null,
             },
           ],
         },
@@ -1594,13 +1595,26 @@ export default function HorariosPage() {
   const actualizarFranja = (
     diaKey: string,
     index: number,
-    campo: 'hora_desde' | 'hora_hasta' | 'tipo_atencion' | 'id_tipo_aseguramiento' | 'modalidad',
+    campo: 'hora_desde' | 'hora_hasta' | 'tipo_atencion' | 'id_tipo_aseguramiento' | 'modalidad' | 'id_convenio',
     valor: any
   ) => {
     setDiasConfigFranjas((prev) => {
       const actual = prev[diaKey];
       const nuevos = [...actual.turnos];
-      nuevos[index] = { ...nuevos[index], [campo]: valor };
+      const turnoActual = { ...nuevos[index], [campo]: valor };
+
+      // Si se selecciona un convenio, se deduce automáticamente el tipo de aseguramiento (no modificable)
+      if (campo === 'id_convenio') {
+        if (valor) {
+          const conv = convenios.find((c) => c.id === Number(valor));
+          if (conv && conv.id_tipo_aseguramiento) {
+            turnoActual.id_tipo_aseguramiento = conv.id_tipo_aseguramiento;
+            turnoActual.tipo_atencion = (conv.tipo_atencion || (conv.id_tipo_aseguramiento === 2 ? 'O' : 'V')) as TipoAtencion;
+          }
+        }
+      }
+
+      nuevos[index] = turnoActual;
       return {
         ...prev,
         [diaKey]: {
@@ -1625,6 +1639,7 @@ export default function HorariosPage() {
             id_tipo_aseguramiento: t.id_tipo_aseguramiento || (t.tipo_atencion === 'O' ? 2 : 1),
             tipo_atencion: t.tipo_atencion || (t.id_tipo_aseguramiento === 2 ? 'O' : 'V'),
             modalidad: t.modalidad || null,
+            id_convenio: t.id_convenio ?? null,
           })),
         };
       });
@@ -1685,6 +1700,7 @@ export default function HorariosPage() {
       id_tipo_aseguramiento: number;
       tipo_atencion: TipoAtencion;
       modalidad?: ModalidadAtencion;
+      id_convenio?: number | null;
     }> = [];
 
     for (const dia of DIAS_SEMANA) {
@@ -1706,6 +1722,7 @@ export default function HorariosPage() {
             id_tipo_aseguramiento: idAseg,
             tipo_atencion: codAtenc,
             modalidad: t.modalidad || null,
+            id_convenio: t.id_convenio ? Number(t.id_convenio) : null,
           });
         }
       }
@@ -1846,13 +1863,14 @@ export default function HorariosPage() {
             id_tipo_aseguramiento: t.id_tipo_aseguramiento || (t.tipo_atencion === 'O' ? 2 : 1),
             tipo_atencion: t.tipo_atencion || (t.id_tipo_aseguramiento === 2 ? 'O' : 'V'),
             modalidad: t.modalidad || null,
+            id_convenio: t.id_convenio ?? null,
           })),
         };
       } else {
         nuevaConfigDiasFranjas[dia.key] = {
           activo: false,
           turnos: [
-            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' },
+            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V', id_convenio: null },
           ],
         };
       }
@@ -1948,13 +1966,14 @@ export default function HorariosPage() {
             hora_hasta: t.hora_hasta,
             id_tipo_aseguramiento: (t as any).id_tipo_aseguramiento || 1,
             tipo_atencion: ((t as any).id_tipo_aseguramiento === 2 || (t as any).tipo_atencion === 'O') ? 'O' : 'V',
+            id_convenio: t.id_convenio ?? null,
           })),
         };
       } else {
         nuevaConfigDiasFranjas[dia.key] = {
           activo: false,
           turnos: [
-            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V' },
+            { idTemp: `f_${dia.key}_default_${Date.now()}`, hora_desde: '08:00', hora_hasta: '12:00', id_tipo_aseguramiento: 1, tipo_atencion: 'V', id_convenio: null },
           ],
         };
       }
@@ -2044,7 +2063,14 @@ export default function HorariosPage() {
           }
         }
       }
-      turnosHorario.sort((a, b) => a.hora_desde.localeCompare(b.hora_desde));
+      turnosHorario.sort((a, b) => {
+        const cmp = a.hora_desde.localeCompare(b.hora_desde);
+        if (cmp !== 0) return cmp;
+        // Prioridad cuando tiene id_convenio
+        if (a.id_convenio && !b.id_convenio) return -1;
+        if (!a.id_convenio && b.id_convenio) return 1;
+        return 0;
+      });
     }
 
     const noLaboraFestivo =
@@ -2083,7 +2109,14 @@ export default function HorariosPage() {
         return true;
       });
 
-      franjasDia.sort((a, b) => a.hora_desde.localeCompare(b.hora_desde));
+      franjasDia.sort((a, b) => {
+        const cmp = a.hora_desde.localeCompare(b.hora_desde);
+        if (cmp !== 0) return cmp;
+        // Prioridad cuando tiene id_convenio
+        if (a.id_convenio && !b.id_convenio) return -1;
+        if (!a.id_convenio && b.id_convenio) return 1;
+        return 0;
+      });
     }
 
     return {
@@ -2317,11 +2350,21 @@ export default function HorariosPage() {
         <div className="toast-container">
           <div className={`toast ${toast.tipo}`}>
             <div className="toast-icon-badge">
-              {toast.tipo === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+              {toast.tipo === 'success' ? (
+                <CheckCircle2 size={20} />
+              ) : toast.tipo === 'warning' ? (
+                <AlertTriangle size={20} />
+              ) : (
+                <AlertCircle size={20} />
+              )}
             </div>
             <div className="toast-content">
               <div className="toast-title">
-                {toast.tipo === 'success' ? 'Operación Exitosa' : 'Mensaje del Sistema / Error'}
+                {toast.tipo === 'success'
+                  ? 'Operación Exitosa'
+                  : toast.tipo === 'warning'
+                  ? 'Aviso Importante'
+                  : 'Mensaje del Sistema / Error'}
               </div>
               <div className="toast-message">{toast.mensaje}</div>
             </div>
@@ -2726,12 +2769,29 @@ export default function HorariosPage() {
                           <div className="registered-turnos-list">
                             {grupoDia.turnos.map((turno) => (
                               <div key={turno.id} className="registered-turno-row">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div className="registered-turno-time">
                                   <Clock size={13} color="var(--accent-teal)" />
                                   <span>
                                     <strong>{formatearHora12(turno.hora_desde)}</strong> a{' '}
                                     <strong>{formatearHora12(turno.hora_hasta)}</strong>
                                   </span>
+                                </div>
+                                <div className="registered-turno-badges">
+                                  {turno.nombre_convenio ? (
+                                    <span
+                                      className="convenio-badge-pill"
+                                      title={`Convenio: ${turno.nombre_convenio} (Prioritario)`}
+                                    >
+                                      <Briefcase size={11} /> {turno.nombre_convenio}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="convenio-badge-pill convenio-badge-all"
+                                      title="Aplica para todos los convenios"
+                                    >
+                                      Todos los convenios
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -3291,6 +3351,30 @@ export default function HorariosPage() {
                                 />
                               </div>
                             </div>
+
+                            {/* Selector de Convenio (TKR_CONVENIOS) */}
+                            <div className="input-group" style={{ marginTop: '8px' }}>
+                              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Briefcase size={12} color="var(--accent-teal)" />
+                                Convenio:
+                              </label>
+                              <select
+                                className="time-input"
+                                style={{ fontSize: '12px', padding: '6px 8px', cursor: 'pointer', width: '100%' }}
+                                value={turno.id_convenio ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value ? Number(e.target.value) : null;
+                                  actualizarTurno(dia.key, idx, 'id_convenio', val);
+                                }}
+                              >
+                                <option value="">Aplica para todos los convenios (General)</option>
+                                {convenios.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.nombre_convenio}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         ))
                       )}
@@ -3484,14 +3568,14 @@ export default function HorariosPage() {
                                   const tipoConf = obtenerConfigTipoAtencion(turno.tipo_atencion);
                                   return (
                                     <div key={turno.id} className="registered-turno-row">
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <div className="registered-turno-time">
                                         <Clock size={13} color="var(--accent-purple)" />
                                         <span>
                                           <strong>{formatearHora12(turno.hora_desde)}</strong> a{' '}
                                           <strong>{formatearHora12(turno.hora_hasta)}</strong>
                                         </span>
                                       </div>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <div className="registered-turno-badges">
                                         <span
                                           className={`turno-atencion-pill ${tipoConf.badgeClass}`}
                                           title={`Régimen: ${tipoConf.nombre}`}
@@ -3511,6 +3595,21 @@ export default function HorariosPage() {
                                         {!turno.modalidad && (
                                           <span className="turno-modalidad-pill modalidad-ambas" title="Aplica para ambas modalidades (Virtual y Domiciliaria)">
                                             Virtual y Domiciliaria
+                                          </span>
+                                        )}
+                                        {turno.nombre_convenio ? (
+                                          <span
+                                            className="convenio-badge-pill"
+                                            title={`Convenio: ${turno.nombre_convenio} (Prioritario)`}
+                                          >
+                                            <Briefcase size={11} /> {turno.nombre_convenio}
+                                          </span>
+                                        ) : (
+                                          <span
+                                            className="convenio-badge-pill convenio-badge-all"
+                                            title="Aplica para todos los convenios"
+                                          >
+                                            Todos los convenios
                                           </span>
                                         )}
                                       </div>
@@ -3816,32 +3915,99 @@ export default function HorariosPage() {
                               </div>
                             </div>
 
-                            {/* Selector de Tipo de Atención Exclusivo de la Franja */}
-                            <div className="tipo-atencion-selector-wrap">
-                              <label className="tipo-atencion-label">Tipo de Aseguramiento:</label>
-                              <div className="tipo-atencion-chips">
-                                {TIPOS_ASEGURAMIENTO.map((tAseg) => {
-                                  const activo = turno.id_tipo_aseguramiento === tAseg.id || turno.tipo_atencion === tAseg.codigo;
-                                  return (
-                                    <button
-                                      key={tAseg.id}
-                                      type="button"
-                                      onClick={() => {
-                                        actualizarFranja(dia.key, idx, 'id_tipo_aseguramiento', tAseg.id);
-                                        actualizarFranja(dia.key, idx, 'tipo_atencion', tAseg.codigo);
-                                      }}
-                                      className={`chip-tipo-atenc ${tAseg.badgeClass} ${
-                                        activo ? 'active' : ''
-                                      }`}
-                                      title={tAseg.descripcion}
-                                    >
-                                      <span className="chip-code">{tAseg.id}</span>
-                                      <span className="chip-text">{tAseg.nombre}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                            {/* Selector de Convenio (TKR_CONVENIOS) */}
+                            <div className="input-group" style={{ marginTop: '8px', marginBottom: '8px' }}>
+                              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Briefcase size={12} color="var(--accent-purple)" />
+                                Convenio:
+                              </label>
+                              <select
+                                className="time-input"
+                                style={{ fontSize: '12px', padding: '6px 8px', cursor: 'pointer', width: '100%' }}
+                                value={turno.id_convenio ?? ''}
+                                onChange={(e) => {
+                                  const val = e.target.value ? Number(e.target.value) : null;
+                                  actualizarFranja(dia.key, idx, 'id_convenio', val);
+                                }}
+                              >
+                                <option value="">Aplica para todos los convenios (General)</option>
+                                {convenios.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.nombre_convenio}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
+
+                            {/* Selector de Tipo de Aseguramiento (Deducido si hay convenio seleccionado) */}
+                            {(() => {
+                              const convSeleccionado = turno.id_convenio
+                                ? convenios.find((c) => c.id === Number(turno.id_convenio))
+                                : null;
+                              const deducidoPorConvenio = Boolean(convSeleccionado && convSeleccionado.id_tipo_aseguramiento);
+
+                              return (
+                                <div className="tipo-atencion-selector-wrap">
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <label className="tipo-atencion-label">Tipo de Aseguramiento:</label>
+                                    {deducidoPorConvenio && (
+                                      <span
+                                        style={{
+                                          fontSize: '10px',
+                                          color: 'var(--accent-purple)',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px',
+                                          fontWeight: 600,
+                                        }}
+                                        title={`Deducido automáticamente por el convenio "${convSeleccionado?.nombre_convenio}" (No se puede modificar)`}
+                                      >
+                                        <Lock size={10} /> Deducido por convenio
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="tipo-atencion-chips">
+                                    {TIPOS_ASEGURAMIENTO.map((tAseg) => {
+                                      const activo =
+                                        turno.id_tipo_aseguramiento === tAseg.id ||
+                                        turno.tipo_atencion === tAseg.codigo;
+                                      return (
+                                        <button
+                                          key={tAseg.id}
+                                          type="button"
+                                          disabled={deducidoPorConvenio}
+                                          onClick={() => {
+                                            if (deducidoPorConvenio) return;
+                                            actualizarFranja(dia.key, idx, 'id_tipo_aseguramiento', tAseg.id);
+                                            actualizarFranja(dia.key, idx, 'tipo_atencion', tAseg.codigo);
+                                          }}
+                                          className={`chip-tipo-atenc ${tAseg.badgeClass} ${
+                                            activo ? 'active' : ''
+                                          } ${deducidoPorConvenio ? 'locked-chip' : ''}`}
+                                          style={
+                                            deducidoPorConvenio
+                                              ? {
+                                                  cursor: 'not-allowed',
+                                                  opacity: activo ? 1 : 0.38,
+                                                  filter: activo ? 'none' : 'grayscale(100%)',
+                                                }
+                                              : {}
+                                          }
+                                          title={
+                                            deducidoPorConvenio
+                                              ? `Deducido por el convenio "${convSeleccionado?.nombre_convenio}" (No se puede modificar)`
+                                              : tAseg.descripcion
+                                          }
+                                        >
+                                          <span className="chip-code">{tAseg.id}</span>
+                                          <span className="chip-text">{tAseg.nombre}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Selector de Modalidad (Virtual, Domiciliaria o Ambas) */}
                             <div className="modalidad-selector-wrap">
@@ -4292,9 +4458,18 @@ export default function HorariosPage() {
                         <>
                           {/* Horario del Profesional (Encima) */}
                           {dataDia.turnosHorario.map((th, idx) => (
-                            <div key={`th_${idx}`} className="cal-event-horario" title={`Horario Profesional: ${formatearHora12(th.hora_desde)} a ${formatearHora12(th.hora_hasta)}`}>
+                            <div
+                              key={`th_${idx}`}
+                              className="cal-event-horario"
+                              title={`Horario Profesional: ${formatearHora12(th.hora_desde)} a ${formatearHora12(th.hora_hasta)}${th.nombre_convenio ? ` · Convenio: ${th.nombre_convenio}` : ' · Todos los convenios'}`}
+                            >
                               <Clock size={10} />
                               <span>{formatearHora12(th.hora_desde)} - {formatearHora12(th.hora_hasta)}</span>
+                              {th.nombre_convenio && (
+                                <span style={{ fontSize: '8.5px', background: 'rgba(255,255,255,0.18)', padding: '0px 3px', borderRadius: '3px', marginLeft: 'auto' }}>
+                                  {th.nombre_convenio.length > 8 ? `${th.nombre_convenio.substring(0, 8)}...` : th.nombre_convenio}
+                                </span>
+                              )}
                             </div>
                           ))}
 
@@ -4384,9 +4559,20 @@ export default function HorariosPage() {
                               </div>
                             ) : (
                               dataDia.turnosHorario.map((th, idx) => (
-                                <div key={`w_th_${idx}`} className="cal-event-horario">
-                                  <Clock size={11} />
-                                  <span>{formatearHora12(th.hora_desde)} a {formatearHora12(th.hora_hasta)}</span>
+                                <div key={`w_th_${idx}`} className="cal-event-horario" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Clock size={11} />
+                                    <span>{formatearHora12(th.hora_desde)} a {formatearHora12(th.hora_hasta)}</span>
+                                  </div>
+                                  {th.nombre_convenio ? (
+                                    <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.2)', padding: '1px 4px', borderRadius: '4px', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`Convenio: ${th.nombre_convenio}`}>
+                                      {th.nombre_convenio}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '9px', opacity: 0.7 }} title="Aplica a todos los convenios">
+                                      General
+                                    </span>
+                                  )}
                                 </div>
                               ))
                             )}
@@ -4540,6 +4726,23 @@ export default function HorariosPage() {
                                     </div>
                                   </div>
                                 </div>
+                                <div>
+                                  {th.nombre_convenio ? (
+                                    <span
+                                      className="convenio-badge-pill"
+                                      title={`Convenio: ${th.nombre_convenio} (Prioritario)`}
+                                    >
+                                      <Briefcase size={11} /> {th.nombre_convenio}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="convenio-badge-pill convenio-badge-all"
+                                      title="Aplica para todos los convenios"
+                                    >
+                                      Todos los convenios
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -4653,8 +4856,13 @@ export default function HorariosPage() {
                                 Jornada:
                               </span>
                               {dataDia.turnosHorario.map((th, idx) => (
-                                <span key={idx} className="cal-event-horario" style={{ display: 'inline-flex' }}>
+                                <span key={idx} className="cal-event-horario" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                   <Clock size={11} /> {formatearHora12(th.hora_desde)} a {formatearHora12(th.hora_hasta)}
+                                  {th.nombre_convenio && (
+                                    <span style={{ fontSize: '9px', opacity: 0.85, background: 'rgba(255,255,255,0.2)', padding: '0 4px', borderRadius: '3px' }}>
+                                      {th.nombre_convenio}
+                                    </span>
+                                  )}
                                 </span>
                               ))}
                             </div>

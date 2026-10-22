@@ -18,7 +18,8 @@ CREATE OR REPLACE PACKAGE pkgcn_franjas AS
         p_hora_hasta         IN VARCHAR2,
         p_fecha_inicial      IN DATE,
         p_fecha_final        IN DATE DEFAULT NULL,
-        p_id_franja_excluir  IN NUMBER DEFAULT NULL
+        p_id_franja_excluir  IN NUMBER DEFAULT NULL,
+        p_id_convenio        IN NUMBER DEFAULT NULL
     ) RETURN BOOLEAN;
 
     -- 2. Desestructuración e inserción masiva de franjas

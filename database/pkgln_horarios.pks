@@ -33,6 +33,30 @@ AS
      * Objeto    : p_guardar_horarios
      * Propósito : Guarda y sincroniza los rangos de horario de un profesional,
      *             permitiendo varios rangos para el mismo día de la semana.
+     *             Opcionalmente recibe festivos_no_laborables para crear las
+     *             ausencias correspondientes en la misma transacción atómica.
+     * 
+     * Estructura JSON Entrada:
+     *   {
+     *     "id_usuario": NUMBER (Obligatorio),
+     *     "reemplazar_todo": NUMBER (Opcional, defecto 1),
+     *     "reemplazar_vigencia": NUMBER (Opcional, defecto 0),
+     *     "fecha_inicial_origen": VARCHAR2 (Opcional, YYYY-MM-DD),
+     *     "fecha_final_origen": VARCHAR2 (Opcional, YYYY-MM-DD),
+     *     "horarios": [ { "dia_semana": "LU", "hora_desde": "08:00", "hora_hasta": "12:00",
+     *                     "fecha_inicial": "2026-12-01", "fecha_final": "2026-12-11",
+     *                     "id_convenio": NUMBER (Opcional, NULL = aplica para todos los convenios) } ],
+     *     "festivos_no_laborables": [ { "fecha": "2026-12-08", "nombre": "Inmaculada Concepción" } ] (Opcional)
+     *   }
+     * 
+     * Estructura JSON Salida:
+     *   {
+     *     "codigo": NUMBER (0 = Éxito, < 0 = Error de negocio o inesperado),
+     *     "mensaje": VARCHAR2 (Texto legible para el usuario final),
+     *     "id_usuario": NUMBER,
+     *     "ausencias_creadas": NUMBER,
+     *     "ausencias_existentes": NUMBER
+     *   }
      * =========================================================================
      */
     PROCEDURE p_guardar_horarios (
@@ -90,7 +114,18 @@ AS
      * =========================================================================
      * Objeto    : p_eliminar_horarios_vigencia
      * Propósito : Elimina todos los horarios de un profesional asociados a un
-     *             rango de vigencia de fechas específico.
+     *             rango de vigencia de fechas específico. Informa en la respuesta
+     *             si existen ausencias registradas para ese periodo a fin de que
+     *             el usuario determine si amerita eliminarlas manualmente.
+     * 
+     * Estructura JSON Salida:
+     *   {
+     *     "codigo": 0,
+     *     "mensaje": VARCHAR2,
+     *     "id_usuario": NUMBER,
+     *     "tiene_ausencias": NUMBER (1 = existen ausencias, 0 = no existen),
+     *     "cantidad_ausencias": NUMBER
+     *   }
      * =========================================================================
      */
     PROCEDURE p_eliminar_horarios_vigencia (

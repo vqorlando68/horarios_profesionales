@@ -35,7 +35,8 @@ AS
         p_hora_hasta         IN VARCHAR2,
         p_fecha_inicial      IN DATE,
         p_fecha_final        IN DATE DEFAULT NULL,
-        p_id_horario_excluir IN NUMBER DEFAULT NULL
+        p_id_horario_excluir IN NUMBER DEFAULT NULL,
+        p_id_convenio        IN NUMBER DEFAULT NULL
     ) RETURN BOOLEAN;
 
     -- 4. Desestructuración de JSON e inserción masiva de horarios con rango de fechas

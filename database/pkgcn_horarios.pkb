@@ -77,7 +77,7 @@ AS
            );
     END p_consultar_profesionales_json;
 
-    -- 3. Validar si existe traslape de horario para un profesional evaluando día, horas y vigencia de fechas
+    -- 3. Validar si existe traslape de horario para un profesional evaluando día, horas, vigencia de fechas y convenio
     FUNCTION f_existe_traslape_horario (
         p_id_usuario         IN NUMBER,
         p_dia_semana         IN VARCHAR2,
@@ -85,7 +85,8 @@ AS
         p_hora_hasta         IN VARCHAR2,
         p_fecha_inicial      IN DATE,
         p_fecha_final        IN DATE DEFAULT NULL,
-        p_id_horario_excluir IN NUMBER DEFAULT NULL
+        p_id_horario_excluir IN NUMBER DEFAULT NULL,
+        p_id_convenio        IN NUMBER DEFAULT NULL
     ) RETURN BOOLEAN IS
         v_conteo    NUMBER := 0;
         v_fin_nuevo DATE;
@@ -94,7 +95,10 @@ AS
         -- 1) Horario por día (p_fecha_inicial = p_fecha_final): Prioridad 1
         -- 2) Horario Personalizado (p_fecha_inicial <> p_fecha_final): Prioridad 2
         -- 3) Horario Base (fecha_final IS NULL): Prioridad 3
-        -- Los horarios sin fecha_final (Horario Base) no realizan validaciones de traslape contra fecha_final.
+        -- Regla de Prioridad de Convenio:
+        -- - La prioridad de una franja es cuando tiene id_convenio (convenio específico prevalece sobre convenio general null).
+        -- - Por tanto, una franja con id_convenio específico no colisiona con una franja general (id_convenio IS NULL).
+        -- - Solo se evalúa traslape entre franjas del mismo nivel (ambas con id_convenio específico o ambas generales null).
         IF p_fecha_final IS NULL THEN
             RETURN FALSE;
         END IF;
@@ -116,7 +120,13 @@ AS
                AND TRUNC(h.fecha_inicial) = TRUNC(p_fecha_inicial)
                -- Intersección de horas
                AND p_hora_desde < h.hora_hasta
-               AND p_hora_hasta > h.hora_desde;
+               AND p_hora_hasta > h.hora_desde
+               -- Prioridad de convenio
+               AND (
+                   (p_id_convenio IS NULL AND h.id_convenio IS NULL)
+                   OR
+                   (p_id_convenio IS NOT NULL AND h.id_convenio IS NOT NULL)
+               );
 
             RETURN (v_conteo > 0);
         END IF;
@@ -137,7 +147,13 @@ AS
            AND TRUNC(v_fin_nuevo)     >= TRUNC(h.fecha_inicial)
            -- 2. Intersección de rangos de horas dentro del mismo día
            AND p_hora_desde < h.hora_hasta
-           AND p_hora_hasta > h.hora_desde;
+           AND p_hora_hasta > h.hora_desde
+           -- Prioridad de convenio
+           AND (
+               (p_id_convenio IS NULL AND h.id_convenio IS NULL)
+               OR
+               (p_id_convenio IS NOT NULL AND h.id_convenio IS NOT NULL)
+           );
 
         RETURN (v_conteo > 0);
     END f_existe_traslape_horario;
@@ -157,6 +173,7 @@ AS
             fecha_inicial,
             fecha_final,
             id_tipo_aseguramiento,
+            id_convenio,
             activo,
             fecha_creacion
         )
@@ -171,7 +188,18 @@ AS
                    THEN TO_DATE(TRIM(jt.fecha_final), 'YYYY-MM-DD')
                    ELSE NULL
                END,
-               NVL(jt.id_tipo_aseguramiento, CASE WHEN UPPER(TRIM(jt.tipo_atencion)) = 'O' THEN 2 ELSE 1 END),
+               COALESCE(
+                   (SELECT CASE WHEN UPPER(TRIM(e.tipo_aseguramiento)) = 'O' THEN 2 
+                                WHEN UPPER(TRIM(e.tipo_aseguramiento)) = 'V' THEN 1 
+                                ELSE NULL END
+                      FROM tkr_convenios c, tkr_entidades e
+                     WHERE c.id = jt.id_convenio
+                       AND e.id(+) = c.id_entidad_hijo
+                       AND ROWNUM = 1),
+                   jt.id_tipo_aseguramiento,
+                   CASE WHEN UPPER(TRIM(jt.tipo_atencion)) = 'O' THEN 2 ELSE 1 END
+               ),
+               jt.id_convenio,
                1,
                SYSDATE
           FROM JSON_TABLE(p_json_horarios, '$.horarios[*]'
@@ -182,6 +210,7 @@ AS
                        fecha_inicial         VARCHAR2(20) PATH '$.fecha_inicial',
                        fecha_final           VARCHAR2(20) PATH '$.fecha_final',
                        id_tipo_aseguramiento NUMBER       PATH '$.id_tipo_aseguramiento',
+                       id_convenio           NUMBER       PATH '$.id_convenio',
                        tipo_atencion         VARCHAR2(10) PATH '$.tipo_atencion'
                    )
                ) jt;
@@ -215,7 +244,7 @@ AS
             AND u.id = p_id_usuario
             AND ROWNUM = 1;
 
-        -- B. Horarios registrados del profesional con su rango de vigencia
+        -- B. Horarios registrados del profesional con su rango de vigencia y convenio
         SELECT COALESCE(
                    JSON_ARRAYAGG(
                        JSON_OBJECT(
@@ -226,8 +255,10 @@ AS
                            'fecha_inicial' VALUE TO_CHAR(h.fecha_inicial, 'YYYY-MM-DD'),
                            'fecha_final'   VALUE TO_CHAR(h.fecha_final, 'YYYY-MM-DD'),
                            'id_tipo_aseguramiento' VALUE NVL(h.id_tipo_aseguramiento, 1),
-                            'tipo_atencion'         VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'O' ELSE 'V' END),
-                            'tipo_aseguramiento'    VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'Obligatorio' ELSE 'Voluntario' END),
+                           'tipo_atencion'         VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'O' ELSE 'V' END),
+                           'tipo_aseguramiento'    VALUE (CASE WHEN NVL(h.id_tipo_aseguramiento, 1) = 2 THEN 'Obligatorio' ELSE 'Voluntario' END),
+                           'id_convenio'           VALUE h.id_convenio,
+                           'nombre_convenio'       VALUE c.nombre_convenio,
                            'activo'        VALUE h.activo
                        )
                        ORDER BY CASE h.dia_semana
@@ -246,9 +277,11 @@ AS
                    TO_CLOB('[]')
                )
           INTO v_json_horarios
-          FROM tkr_horarios_profesional h
-         WHERE h.id_usuario = p_id_usuario
-           AND h.activo = 1;
+          FROM tkr_horarios_profesional h,
+               tkr_convenios            c
+         WHERE c.id(+)      = h.id_convenio
+           AND h.id_usuario = p_id_usuario
+           AND h.activo     = 1;
 
         -- C. Ausencias programadas del profesional
         SELECT COALESCE(
@@ -308,16 +341,18 @@ AS
              ORDER BY a.fecha_inicial ASC;
     BEGIN
         SELECT jt.id_usuario,
-               TO_DATE(jt.fecha_inicio, 'YYYY-MM-DD'),
-               TO_DATE(jt.fecha_fin, 'YYYY-MM-DD')
+               TO_DATE(NVL(jt.fecha_inicio, jt.fecha_inicial), 'YYYY-MM-DD'),
+               TO_DATE(NVL(jt.fecha_fin, jt.fecha_final), 'YYYY-MM-DD')
           INTO v_id_usuario,
                v_fecha_inicio,
                v_fecha_fin
           FROM JSON_TABLE(p_json, '$'
                    COLUMNS (
-                       id_usuario   NUMBER       PATH '$.id_usuario',
-                       fecha_inicio VARCHAR2(20) PATH '$.fecha_inicio',
-                       fecha_fin    VARCHAR2(20) PATH '$.fecha_fin'
+                       id_usuario    NUMBER       PATH '$.id_usuario',
+                       fecha_inicio  VARCHAR2(20) PATH '$.fecha_inicio',
+                       fecha_fin     VARCHAR2(20) PATH '$.fecha_fin',
+                       fecha_inicial VARCHAR2(20) PATH '$.fecha_inicial',
+                       fecha_final   VARCHAR2(20) PATH '$.fecha_final'
                    )
                ) jt;
 

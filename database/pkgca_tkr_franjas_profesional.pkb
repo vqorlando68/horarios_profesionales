@@ -50,11 +50,11 @@ CREATE OR REPLACE PACKAGE BODY pkgca_tkr_franjas_profesional AS
                    dia_semana,
                    hora_desde,
                    hora_hasta,
-                   fecha_inicial,
-                   fecha_final,
+                   TO_CHAR(fecha_inicial, 'YYYY-MM-DD') AS fecha_inicial,
+                   TO_CHAR(fecha_final, 'YYYY-MM-DD') AS fecha_final,
                    id_tipo_aseguramiento,
                    activo,
-                   fecha_creacion
+                   TO_CHAR(fecha_creacion, 'YYYY-MM-DD') AS fecha_creacion
               FROM tkr_franjas_profesional
              WHERE id_usuario = p_id_usuario
              ORDER BY fecha_inicial DESC, dia_semana ASC, hora_desde ASC;

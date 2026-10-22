@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       fecha_inicial_origen: body.fecha_inicial_origen || null,
       fecha_final_origen: body.fecha_final_origen || null,
       horarios: body.horarios || [],
+      festivos_no_laborables: body.festivos_no_laborables || [],
       codigo_traza: 'WEB_GUARDAR_HORARIOS_' + Date.now(),
       ip_origen: req.headers.get('x-forwarded-for') || '127.0.0.1',
     };

@@ -244,7 +244,7 @@ AS
                    'fecha_inicial'           VALUE TO_CHAR(t.fecha_inicial, 'YYYY-MM-DD'),
                    'fecha_final'             VALUE TO_CHAR(t.fecha_final, 'YYYY-MM-DD'),
                    'activo'                  VALUE t.activo,
-                   'fecha_creacion'          VALUE TO_CHAR(t.fecha_creacion, 'YYYY-MM-DD"T"HH24:MI:SS')
+                   'fecha_creacion'          VALUE TO_CHAR(t.fecha_creacion, 'YYYY-MM-DD')
                    RETURNING CLOB
                )
           INTO v_existe, p_json_tkr_horarios_profesional

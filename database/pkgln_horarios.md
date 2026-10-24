@@ -1,309 +1,421 @@
-# Flujo Funcional, Decisiones y Grafo de Dependencias: `PKGLN_HORARIOS`
+# Diagrama y Flujo de Información: PKGLN_HORARIOS
 
-Este documento describe en lenguaje natural la lógica de negocio, las bifurcaciones de decisión y la secuencia exacta de objetos invocados para cada método del paquete `PKGLN_HORARIOS`. Ha sido estructurado para ser procesado por una herramienta de visualización gráfica de flujos y grafos de dependencias.
+## Método: p_listar_profesionales
 
----
+### 1. Descripción en Lenguaje Natural
+Consulta la lista de médicos y profesionales de salud habilitados en el sistema con soporte de filtrado opcional por nombre o correo electrónico:
+- Valida la estructura del payload de entrada de manera tolerante a nulos, adoptando valores por defecto si no se especifican filtros.
+- Evalúa las reglas de observabilidad en la bitácora de auditoría y apertura la traza técnica de seguimiento si se encuentra activa.
+- Delega en la capa de negocio la consulta multi-tabla para extraer los usuarios activos con rol asistencial (`id_rol = 4`), concatenando nombres y apellidos y resolviendo la URL de la fotografía de perfil.
+- Cierra la traza técnica con estado exitoso y retorna el arreglo estructurado con la información de los profesionales.
+- Ante cualquier fallo imprevisto, captura la excepción, revierte operaciones, marca la traza en estado de error y persiste el volcado forense antes de responder.
 
-## 1. Método: `p_listar_profesionales`
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Evaluación de Trazabilidad]**: Si el servicio tiene telemetría activa en las reglas de auditoría; Registra el inicio de traza y vuelve al flujo principal (`uti_manejo_trazas_pkg.f_debe_trazar`)
+- **Paso 02 [Apertura de Traza Técnica]**: Si la telemetría se encuentra habilitada; Apertura el registro de seguimiento en la bitácora de auditoría y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_iniciar_traza`)
+- **Paso 03 [Consulta Multi-Tabla de Médicos]**: Extrae los profesionales activos con rol asistencial resolviendo nombres completos y enlaces de fotografía; `PKGCN_HORARIOS.p_consultar_profesionales_json`
+- **Paso 04 [Telemetría Exitosa]**: Si la traza se encuentra activa; Registra el cierre exitoso de la ejecución en la auditoría y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_finalizar_traza`)
+- **Paso 05 [Control Forense de Excepciones]**: Ante cualquier fallo imprevisto; Registra el estado de error en telemetría (`uti_manejo_trazas_pkg.p_finalizar_traza_error`), persiste el volcado forense en la bitácora de incidentes (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
 
-### 1.1 Descripción Funcional en Lenguaje Natural
-El método recibe un payload opcional en formato JSON (`p_json_entrada`) que puede contener un texto de filtro por nombre o correo electrónico. Valida si la telemetría se encuentra activa en `tkr_traza_config` y, de ser así, apertura una traza técnica. Posteriormente, delega en la capa de negocio `PKGCN_HORARIOS` la consulta de todos los usuarios registrados en `tkr_usuarios` que posean el rol de médico/profesional (`id_rol = 4` en `tkr_roles_usuario`), se encuentren en estado activo (`id_estado_usuario = 1`), concatenando sus nombres y apellidos completos y resolviendo la URL de su fotografía mediante `pkgcn_profesionales.f_url_foto_profesional`. Finalmente, cierra la traza y retorna el JSON consolidado en `p_json_salida`.
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `uti_manejo_trazas_pkg.f_debe_trazar` | `uti_` | Función | Comprobar si el método tiene telemetría configurada | Al inicio de la ejecución |
+| 2 | `uti_manejo_trazas_pkg.p_iniciar_traza` | `uti_` | Procedimiento | Registrar apertura en tkr_traza_ejecucion | Bifurcación: Si debe_trazar = TRUE (vuelve al flujo) |
+| 3 | `PKGCN_HORARIOS.p_consultar_profesionales_json` | `pkgcn_` | Procedimiento | Ejecutar consulta multi-tabla con sintaxis tradicional y generar JSON | En flujo principal |
+| 4 | `pkgcn_profesionales.f_url_foto_profesional` | `pkgcn_` | Función | Resolver URL de la imagen del profesional | Invocado internamente por consulta SQL |
+| 5 | `uti_manejo_trazas_pkg.p_finalizar_traza` | `uti_` | Procedimiento | Registrar fin exitoso de la telemetría | Al completar la consulta sin fallos |
+| 6 | `uti_manejo_trazas_pkg.p_finalizar_traza_error` | `uti_` | Procedimiento | Registrar fin con estado ERROR en telemetría | Bloque WHEN OTHERS ante fallos |
+| 7 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Persistir registro técnico del error en tkr_errores | Bloque WHEN OTHERS ante fallos |
 
-### 1.2 Decisiones y Bifurcaciones Lógicas
-1. **Extracción y Validación de Entrada:** Si `p_json_entrada` es no nulo, extrae de forma segura `filtro`, `id_usuario_ejecutor`, `codigo_traza` e `ip_origen`. Si el JSON es nulo o inválido, asume valores por defecto sin abortar la consulta general.
-2. **Evaluación de Telemetría:** Evalúa `uti_manejo_trazas_pkg.f_debe_trazar`. Si retorna `TRUE`, abre traza con `uti_manejo_trazas_pkg.p_iniciar_traza`. Si es `FALSE`, continúa la ejecución omitiendo el registro de telemetría.
-3. **Control de Excepciones:** Ante cualquier fallo inesperado (`WHEN OTHERS`), ejecuta `ROLLBACK`, finaliza la traza en estado de error con `uti_manejo_trazas_pkg.p_finalizar_traza_error`, persiste el volcado forense en `tkr_errores` con `uti_ge_excepciones_pkg.p_grabar_log` y propaga al cliente el error `-20000` con el identificador del incidente.
-
-### 1.3 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `uti_manejo_trazas_pkg.f_debe_trazar` | Utilitarios (`uti_`) | Consulta en `tkr_traza_config` si el método debe trazar |
-| 2 | `uti_manejo_trazas_pkg.p_iniciar_traza` | Utilitarios (`uti_`) | Apertura el registro de traza en `tkr_traza_ejecucion` si traza activa |
-| 3 | `PKGCN_HORARIOS.p_consultar_profesionales_json` | Casos de Negocio (`pkgcn_`) | Ejecuta la consulta multi-tabla con sintaxis tradicional y genera el JSON |
-| 4 | `pkgcn_profesionales.f_url_foto_profesional` | Casos de Negocio (`pkgcn_`) | Invocado dentro de la consulta SQL para resolver la foto del médico |
-| 5 | `uti_manejo_trazas_pkg.p_finalizar_traza` | Utilitarios (`uti_`) | Cierra la traza con status exitoso |
-| 6 | `uti_manejo_trazas_pkg.p_finalizar_traza_error` | Utilitarios (`uti_`) | Cierra la traza con status ERROR en WHEN OTHERS |
-| 7 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Persistencia forense en `tkr_errores` en WHEN OTHERS |
-
----
-
-## 2. Método: `p_guardar_horarios`
-
-### 2.1 Descripción Funcional en Lenguaje Natural
-Permite al profesional de salud o al administrador configurar su disponibilidad semanal de atención, soportando la configuración de **múltiples rangos de horas para el mismo día de la semana** (por ejemplo: Lunes de 08:00 a 12:00 y de 14:00 a 18:00) y **asociando un rango de vigencia por fechas**:
-- **`fecha_inicial`**: Fecha a partir de la cual entra en vigencia el horario (obligatoria).
-- **`fecha_final`**: Fecha de finalización del horario (opcional). Si está informada, el horario aplica exclusivamente entre `fecha_inicial` y `fecha_final`. Si es `NULL`, aplica de forma indefinida a partir de `fecha_inicial`.
-
-Adicionalmente, acepta un arreglo opcional de **`festivos_no_laborables`** (`[ { "fecha": "YYYY-MM-DD", "nombre": "..." } ]`) para profesionales que no laboran en días feriados. En una única transacción atómica (todo o nada), valida las fechas contra el calendario nacional (`tkr_festivos` con `id_pais = 1`), restringe que no se envíen domingos (los domingos se gestionan en la grilla semanal), inserta los horarios y crea las ausencias de un día por cada festivo no cubierto previamente en `tkr_ausencias_profesional`, reportando en el JSON de salida la cantidad de ausencias creadas y las ya existentes. Ante cualquier error de validación o traslape, la transacción revierte por completo (`ROLLBACK`) y retorna el error de negocio directamente en el JSON de salida (`p_json_salida`) con mensaje amigable para el usuario final.
-
-Soporta dos modalidades de reemplazo controlado:
-1. **Reemplazo Completo (`reemplazar_todo = 1`)**: Elimina todos los horarios históricos del profesional mediante `pkgca_tkr_horarios_profesional.p_borrar_x_profesional`.
-2. **Edición o Reemplazo de Vigencia Específica (`reemplazar_todo = 0` con `fecha_inicial_origen` o `reemplazar_vigencia = 1`)**: Si se está modificando una vigencia previamente grabada, invoca `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` para limpiar los horarios previos de dicha vigencia antes de validar contra las demás vigencias de la base de datos e insertar los nuevos turnos. Esto evita falsos positivos por auto-traslape cuando un médico ajusta horarios de un período existente.
-
-### 2.2 Decisiones y Bifurcaciones Lógicas
-1. **Validación de Parámetro Obligatorio:** Si `p_json_entrada` o `id_usuario` son nulos, devuelve error en JSON `-20001`.
-2. **Validación de Cada Rango Horario (en memoria):**
-   * Si `dia_semana` no pertenece a la lista canónica (`LU`, `MA`, `MI`, `JU`, `VI`, `SA`, `DO`), lanza error `-20002`.
-   * Si `hora_desde >= hora_hasta`, lanza error `-20003`.
-   * Si `dia_semana = 'DO'` y el usuario no trabaja festivos (`pkgca_tkr_usuarios.f_trabaja_festivos = 'N'`), lanza error `-20010`.
-   * Si `fecha_inicial` viene nula o vacía, lanza error `-20004`.
-   * Si el formato de `fecha_inicial` no es válido (YYYY-MM-DD), lanza error `-20005`.
-   * Si `fecha_final` viene informada pero con formato inválido, lanza error `-20006`.
-   * Si `fecha_final < fecha_inicial`, lanza error `-20007` (coherencia cronológica de vigencia).
-3. **Validación de No Traslape en Memoria y Regla de Prioridad de Convenio:** Compara de forma cruzada cada par de rangos del mismo día de la semana. La prioridad de una franja es cuando tiene `id_convenio` específico (prevalece sobre franjas generales `id_convenio IS NULL`). Por tanto, una franja con `id_convenio` no se traslapa con una franja general. Solo se genera error `-20008` si coinciden vigencias de fechas y horas entre dos franjas del mismo nivel (ambas con convenio específico o ambas generales).
-4. **Validación de Festivos No Laborables (`festivos_no_laborables`):** Si el arreglo viene informado:
-   * Si alguna fecha es domingo, aborta con error `-20013` ('Los domingos no se registran como festivo no laborable.').
-   * Si alguna fecha no cae dentro de `[fecha_inicial, fecha_final]` del lote o no existe en `tkr_festivos` con `id_pais = 1` (validado mediante `pkgca_tkr_festivos.f_es_festivo`), aborta con error `-20012` ('La fecha <fecha> no es un festivo dentro del rango del horario.').
-5. **Decisión de Borrado Previo Transaccional:**
-   * Si `reemplazar_todo = 1`, invoca `pkgca_tkr_horarios_profesional.p_borrar_x_profesional`.
-   * Si `fecha_inicial_origen` viene informada, invoca `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` para limpiar la vigencia origen modificada.
-   * Si `reemplazar_vigencia = 1`, invoca `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` con el rango de fechas del lote.
-6. **Validación de Unicidad de Horario Base:** Si se intenta guardar un Horario Base (`fecha_final IS NULL`) en modo incremental (`reemplazar_todo = 0`), invoca `pkgca_tkr_horarios_profesional.f_existe_horario_base`. Si ya existe otro horario base registrado para el profesional, aborta con error de negocio `-20011`.
-7. **Validación contra Base de Datos (Traslapes):** Para horarios con fecha final, evalúa no traslape contra turnos existentes mediante `PKGCN_HORARIOS.f_existe_traslape_horario`. Si hay cruce, aborta con `-20009`.
-8. **Inserción Relacional de Horarios:** Si existen elementos en el arreglo, delega la inserción a `PKGCN_HORARIOS.p_guardar_horarios_profesional`.
-9. **Inserción de Ausencias por Festivo:** Por cada fecha en `festivos_no_laborables`, valida `pkgca_tkr_ausencias_profesional.f_existe_ausencia`. Si ya está cubierta, incrementa `ausencias_existentes`. Si no, persiste la ausencia de un día mediante `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar` e incrementa `ausencias_creadas`.
-10. **Control Transaccional Atómico:** Un único `p_do_commit('PKGLN_HORARIOS.p_guardar_horarios')` al final que confirma tanto horarios como ausencias.
-11. **Control de Excepciones y Formato de Salida:**
-    * Ante errores controlados (-20001 a -20999), ejecuta `ROLLBACK` y devuelve el objeto JSON con `codigo` y `mensaje` en texto limpio sin prefijos técnicos.
-    * Ante errores no controlados, ejecuta `ROLLBACK`, registra el incidente en `tkr_errores` vía `uti_ge_excepciones_pkg.p_grabar_log` y devuelve código `-20000`.
-
-### 2.3 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `pkgca_tkr_usuarios.f_trabaja_festivos` | Acceso No-PK Mono-Tabla (`pkgca_`) | Verifica autorización para laborar domingos |
-| 2 | `pkgca_tkr_festivos.f_es_festivo` | Acceso No-PK Mono-Tabla (`pkgca_`) | Valida existencia de cada fecha en el calendario oficial de festivos |
-| 3 | `pkgca_tkr_horarios_profesional.p_borrar_x_profesional` | Acceso No-PK Mono-Tabla (`pkgca_`) | Elimina los horarios previos de la tabla si `reemplazar_todo = 1` |
-| 4 | `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` | Acceso No-PK Mono-Tabla (`pkgca_`) | Elimina la vigencia anterior si se edita o `reemplazar_vigencia = 1` |
-| 5 | `pkgca_tkr_horarios_profesional.f_existe_horario_base` | Acceso No-PK Mono-Tabla (`pkgca_`) | Verifica unicidad de horario base si el lote entrante tiene fecha_final NULL |
-| 6 | `PKGCN_HORARIOS.f_existe_traslape_horario` | Casos de Negocio (`pkgcn_`) | Valida traslapes con horarios restantes si `reemplazar_todo = 0` |
-| 7 | `PKGCN_HORARIOS.p_guardar_horarios_profesional` | Casos de Negocio (`pkgcn_`) | Desestructura con `JSON_TABLE` e inserta los rangos con fechas en `tkr_horarios_profesional` |
-| 8 | `pkgca_tkr_ausencias_profesional.f_existe_ausencia` | Acceso No-PK Mono-Tabla (`pkgca_`) | Verifica si la fecha festiva ya está cubierta para no duplicar |
-| 9 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar` | Persistencia (`DAO`) | Inserta el registro de ausencia para el festivo no laborable |
-| 10 | `p_do_commit` | Gobierno Transaccional | Confirma de forma atómica la transacción completa (horarios + ausencias) |
-| 11 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Registra el error forense en `tkr_errores` ante fallo no controlado |
-
----
-
-## 3. Método: `p_consultar_agenda`
-
-### 3.1 Descripción Funcional en Lenguaje Natural
-Obtiene la ficha y programación integral de un profesional específico. Recibe el identificador del usuario (`id_usuario`), valida su presencia, verifica trazabilidad y solicita a `PKGCN_HORARIOS` la generación de un JSON consolidado que contiene: datos personales del médico (nombres, apellidos, correo y URL de foto resuelta dinámicamente), colección de rangos horarios activos ordenados cronológicamente por día de la semana y hora, y el historial de ausencias programadas en `tkr_ausencias_profesional`.
-
-### 3.2 Decisiones y Bifurcaciones Lógicas
-1. **Validación de Identificador:** Si `id_usuario` no está presente, arroja error de negocio `-20001`.
-2. **Telemetría:** Comprueba y registra traza mediante `uti_manejo_trazas_pkg`.
-3. **Consulta de Negocio:** Llama a `PKGCN_HORARIOS.p_consultar_agenda_profesional_json`.
-4. **Excepciones:** `ROLLBACK`, logging en `tkr_errores` y `-20000`.
-
-### 3.3 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `uti_manejo_trazas_pkg.f_debe_trazar` | Utilitarios (`uti_`) | Verifica si la telemetría está activa |
-| 2 | `uti_manejo_trazas_pkg.p_iniciar_traza` | Utilitarios (`uti_`) | Apertura la traza técnica |
-| 3 | `PKGCN_HORARIOS.p_consultar_agenda_profesional_json` | Casos de Negocio (`pkgcn_`) | Extrae y consolida datos del profesional, horarios y ausencias |
-| 4 | `pkgcn_profesionales.f_url_foto_profesional` | Casos de Negocio (`pkgcn_`) | Resuelve la URL de la foto del profesional |
-| 5 | `uti_manejo_trazas_pkg.p_finalizar_traza` | Utilitarios (`uti_`) | Cierra la traza con éxito |
-| 6 | `uti_manejo_trazas_pkg.p_finalizar_traza_error` | Utilitarios (`uti_`) | Cierra la traza con error en WHEN OTHERS |
-| 7 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Log forense en `tkr_errores` |
-
----
-
-## 4. Método: `p_registrar_ausencia`
-
-### 4.1 Descripción Funcional en Lenguaje Natural
-Registra un periodo de tiempo en el que un profesional no prestará servicio (vacaciones, incapacidad, permisos o ausencias programadas) en la tabla `TKR_AUSENCIAS_PROFESIONAL`. Recibe el `id_usuario`, `fecha_inicial` y `fecha_final`. Convierte las fechas desde formato ISO, valida que la fecha inicial no sea superior a la final, prepara el registro `%ROWTYPE` y delega la persistencia al DAO oficial `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar`. Tras la persistencia exitosa, asegura los cambios mediante `p_do_commit` y responde al cliente.
-
-### 4.2 Decisiones y Bifurcaciones Lógicas
-1. **Validación de Identificador:** Valida `id_usuario` no nulo (error `-20001`).
-2. **Validación de Fechas Obligatorias:** Valida que vengan ambas fechas (error `-20002`).
-3. **Parseo de Formato de Fechas:** Llama a `f_parsear_fecha`. Si no logra interpretar la fecha, arroja error `-20003`.
-4. **Coherencia Temporal:** Si `fecha_inicial > fecha_final`, aborta con error `-20004`.
-5. **Persistencia Atómica en DAO:** Asigna el registro y ejecuta `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar`.
-6. **Commit Controlado:** Ejecuta `p_do_commit('PKGLN_HORARIOS.p_registrar_ausencia')`.
-7. **Excepciones:** `ROLLBACK`, traza ERROR y `uti_ge_excepciones_pkg.p_grabar_log`.
-
-### 4.3 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `uti_manejo_trazas_pkg.f_debe_trazar` | Utilitarios (`uti_`) | Verifica telemetría |
-| 2 | `uti_manejo_trazas_pkg.p_iniciar_traza` | Utilitarios (`uti_`) | Inicia traza de ejecución |
-| 3 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar` | Persistencia (`DAO`) | Inserta el registro en `tkr_ausencias_profesional` |
-| 4 | `p_do_commit` | Gobierno Transaccional | Confirma la transacción en la base de datos |
-| 5 | `uti_manejo_trazas_pkg.p_finalizar_traza` | Utilitarios (`uti_`) | Cierra la traza exitosa |
-| 6 | `uti_manejo_trazas_pkg.p_finalizar_traza_error` | Utilitarios (`uti_`) | Cierra la traza en status ERROR |
-| 7 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Registra el fallo en `tkr_errores` |
-
----
-
-## 5. Método: `p_consultar_ausencias`
-
-### 5.1 Descripción Funcional en Lenguaje Natural
-Consulta el catálogo de ausencias registradas pudiendo filtrar por profesional o rango de fechas, devolviendo la información relacionalmente enriquecida con los nombres y apellidos del profesional y su fotografía.
-
-### 5.2 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `PKGCN_HORARIOS.pr_consultar_ausencias_json` | Casos de Negocio (`pkgcn_`) | Ejecuta la consulta SQL tradicional y genera el JSON de ausencias |
-| 2 | `pkgcn_profesionales.f_url_foto_profesional` | Casos de Negocio (`pkgcn_`) | Resuelve la URL de foto de cada profesional |
-
----
-
-## 6. Método: `p_eliminar_ausencia`
-
-### 6.1 Descripción Funcional en Lenguaje Natural
-Elimina un registro de ausencia previamente configurado a partir de su clave primaria (`id`). Valida la existencia previa en el DAO y procede con la eliminación atómica, asegurando la consistencia mediante `p_do_commit`.
-
-### 6.2 Decisiones y Bifurcaciones Lógicas
-1. **Validación de Identificador:** Valida `id` obligatorio (error `-20001`).
-2. **Existencia Previa:** Invoca `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.f_existe(id)`. Si retorna `FALSE`, lanza error `-20002`.
-3. **Eliminación en DAO:** Ejecuta `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_eliminar(id)`.
-4. **Confirmación Transaccional:** Invoca `p_do_commit('PKGLN_HORARIOS.p_eliminar_ausencia')`.
-5. **Excepciones:** `ROLLBACK`, logging en `tkr_errores` y `-20000`.
-
-### 6.3 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.f_existe` | Persistencia (`DAO`) | Valida que la ausencia exista por PK |
-| 2 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_eliminar` | Persistencia (`DAO`) | Elimina el registro de la tabla |
-| 3 | `p_do_commit` | Gobierno Transaccional | Confirma la transacción |
-| 4 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Log forense en caso de excepción |
-
----
-
-## 7. Método: `p_eliminar_horarios_vigencia`
-
-### 7.1 Descripción Funcional en Lenguaje Natural
-Elimina de manera atómica todos los horarios correspondientes a una vigencia específica (determinada por `fecha_inicial` y opcionalmente `fecha_final`) invocando `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas`. Posteriormente, verifica mediante `pkgca_tkr_ausencias_profesional.f_contar_ausencias_rango` si existen ausencias registradas dentro de dicho periodo. En caso afirmativo, no las elimina automáticamente sino que genera un mensaje informativo y las banderas `tiene_ausencias = 1` y `cantidad_ausencias` en la salida JSON para advertir al usuario que revise y elimine dichas ausencias si amerita en el módulo correspondiente. Finalmente confirma la eliminación con `p_do_commit`.
-
-### 7.2 Decisiones y Bifurcaciones Lógicas
-1. **Validación de Identificador y Rango:** Valida que `id_usuario` y `fecha_inicial` no sean nulos (error `-20001`).
-2. **Eliminación Mono-Tabla de Horarios:** Invoca `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas(v_id_usuario, v_fecha_inicial, v_fecha_final)`.
-3. **Verificación de Ausencias en el Periodo:**
-   - Invoca `pkgca_tkr_ausencias_profesional.f_contar_ausencias_rango(v_id_usuario, v_fecha_inicial, v_fecha_final)`.
-   - Si `v_cant_ausencias > 0`: Asigna `tiene_ausencias = 1` y concatena al mensaje informativo que existen ausencias para que el usuario las gestione si amerita.
-   - Si `v_cant_ausencias = 0`: Asigna `tiene_ausencias = 0` y mensaje estándar de éxito.
-4. **Confirmación Transaccional:** Invoca `p_do_commit('PKGLN_HORARIOS.p_eliminar_horarios_vigencia')`.
-5. **Manejo de Errores Amigables:** Cualquier excepción devuelve JSON estructurado con `codigo != 0` y mensaje limpio para el usuario final.
-
-### 7.3 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` | Acceso No-PK Mono-Tabla (`pkgca_`) | Elimina los turnos de la tabla física `tkr_horarios_profesional` |
-| 2 | `pkgca_tkr_ausencias_profesional.f_contar_ausencias_rango` | Acceso No-PK Mono-Tabla (`pkgca_`) | Verifica y cuenta ausencias registradas en el periodo borrado |
-| 3 | `p_do_commit` | Gobierno Transaccional | Confirma la transacción en la base de datos |
-| 4 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Registra el fallo en `tkr_errores` |
-
----
-
-## 8. Método: `p_actualizar_trabaja_festivos`
-
-### 8.1 Descripción Funcional en Lenguaje Natural
-Actualiza la configuración de trabajo en días festivos y domingos (`trabaja_festivos` con valores `'S'` o `'N'`) para un usuario específico en `tkr_usuarios`. Opcionalmente, si el usuario pasa a `trabaja_festivos = 'N'` y se recibe la instrucción explícita `borrar_domingos = 1`, procede a eliminar de manera atómica todos los horarios previamente configurados para el día Domingo (`dia_semana = 'DO'`) de la tabla `tkr_horarios_profesional`, confirmando todos los cambios bajo una única transacción gobernada por `p_do_commit`.
-
-### 8.2 Decisiones y Bifurcaciones Lógicas
-1. **Validación de Identificador:** Valida `id_usuario` no nulo (error `-20001`).
-2. **Validación de Valor Booleano/Flag:** Valida que `trabaja_festivos` sea estrictamente `'S'` o `'N'` (error `-20009`).
-3. **Actualización de Flag:** Invoca `pkgca_tkr_usuarios.p_actualizar_trabaja_festivos(v_id_usuario, v_trabaja_festivos)` para actualizar la columna en `tkr_usuarios`.
-4. **Bifurcación Eliminación de Domingos:**
-   - Si `v_trabaja_festivos = 'N'` y `v_borrar_domingos = 1`:
-     Invoca `pkgca_tkr_horarios_profesional.p_borrar_x_dia_semana(v_id_usuario, 'DO')`.
-5. **Confirmación Transaccional:** Invoca `p_do_commit('PKGLN_HORARIOS.p_actualizar_trabaja_festivos')`.
-6. **Respuesta Estructurada:** Genera JSON de confirmación `{ "codigo": 0, "mensaje": "..." }`.
-7. **Excepciones:** `ROLLBACK`, logging persistente en `tkr_errores` y retorno controlado en JSON de salida.
-
-### 8.3 Secuencia de Llamados y Objetos Invocados
-
-| Orden | Objeto Invocado (Nombre Exacto) | Capa / Familia | Propósito / Condición de Invocación |
-| :---: | :--- | :--- | :--- |
-| 1 | `pkgca_tkr_usuarios.p_actualizar_trabaja_festivos` | Acceso No-PK Mono-Tabla (`pkgca_`) | Actualiza `trabaja_festivos` en `tkr_usuarios` |
-| 2 | `pkgca_tkr_horarios_profesional.p_borrar_x_dia_semana` | Acceso No-PK Mono-Tabla (`pkgca_`) | Condicional: Borra turnos de domingo si flag = 'N' y borrar_domingos = 1 |
-| 3 | `p_do_commit` | Gobierno Transaccional | Confirma la transacción |
-| 4 | `uti_ge_excepciones_pkg.p_grabar_log` | Utilitarios (`uti_`) | Log forense en caso de excepción |
-
----
-
-## 9. Mapa Global de Dependencias para la Aplicación de Grafos
-
-```mermaid
-graph TD
-    Client["Frontend / API Gateway"] --> PKGLN["PKGLN_HORARIOS"]
-    
-    subgraph Orquestador Transaccional
-        PKGLN
-    end
-    
-    subgraph Casos de Negocio Multi-Tabla y JSON
-        PKGCN_H["PKGCN_HORARIOS"]
-        PKGCN_P["pkgcn_profesionales"]
-    end
-    
-    subgraph Acceso No-PK Mono-Tabla
-        PKGCA_HP["pkgca_tkr_horarios_profesional"]
-        PKGCA_AP["pkgca_tkr_ausencias_profesional"]
-        PKGCA_F["pkgca_tkr_festivos"]
-        PKGCA_U["pkgca_tkr_usuarios"]
-    end
-    
-    subgraph Persistencia Pura DAO
-        DAO_HP["PKGTKR_HORARIOS_PROFESIONAL_DAO"]
-        DAO_AP["PKGTKR_AUSENCIAS_PROFESIONAL_DAO"]
-    end
-    
-    subgraph Utilitarios Transversales
-        UTI_T["uti_manejo_trazas_pkg"]
-        UTI_E["uti_ge_excepciones_pkg"]
-        COMMIT["p_do_commit"]
-    end
-    
-    subgraph Tablas Base de Datos
-        TKR_HP[("tkr_horarios_profesional")]
-        TKR_AP[("tkr_ausencias_profesional")]
-        TKR_F[("tkr_festivos")]
-        TKR_U[("tkr_usuarios")]
-        TKR_RU[("tkr_roles_usuario")]
-        TKR_ERR[("tkr_errores")]
-        TKR_TRZ[("tkr_traza_ejecucion")]
-    end
-
-    %% Invocaciones desde PKGLN
-    PKGLN -->|Telemetría| UTI_T
-    PKGLN -->|Persistencia Ausencias| DAO_AP
-    PKGLN -->|Limpieza Mono-Tabla Horarios| PKGCA_HP
-    PKGLN -->|Validación / Conteo Ausencias| PKGCA_AP
-    PKGLN -->|Validación Festivos País| PKGCA_F
-    PKGLN -->|Actualización Festivos| PKGCA_U
-    PKGLN -->|Validación Traslape & Agenda| PKGCN_H
-    PKGLN -->|Inserción JSON_TABLE con Fechas| PKGCN_H
-    PKGLN -->|Confirmación Atómica| COMMIT
-    PKGLN -->|Logging Excepciones| UTI_E
-
-    %% Invocaciones desde PKGCN (Multi-Tabla)
-    PKGCN_H -->|Resuelve Foto| PKGCN_P
-    PKGCN_H -->|DML JSON_TABLE con Fechas| TKR_HP
-    PKGCN_H -->|SELECT Tradicional (+)| TKR_U
-    PKGCN_H -->|SELECT Tradicional (+)| TKR_RU
-    PKGCN_H -->|SELECT Tradicional (+)| TKR_AP
-    PKGCN_H -->|Validación Traslape Fechas/Horas| TKR_HP
-
-    %% Invocaciones desde PKGCA (Mono-Tabla Estricto)
-    PKGCA_HP -->|DELETE / UPDATE Mono-Tabla| TKR_HP
-    PKGCA_AP -->|DELETE / UPDATE / SELECT Mono-Tabla| TKR_AP
-    PKGCA_F -->|SELECT Festivos País| TKR_F
-    PKGCA_U -->|UPDATE / SELECT Mono-Tabla| TKR_U
-
-    %% Invocaciones desde DAOs
-    DAO_HP -->|CRUD Atómico por PK| TKR_HP
-    DAO_AP -->|CRUD Atómico por PK| TKR_AP
-
-    %% Utilitarios a Tablas
-    UTI_E -->|Log Autónomo| TKR_ERR
-    UTI_T -->|Registro Traza| TKR_TRZ
+```json
+// JSON ENTRADA
+{
+  "filtro": "carlos",
+  "id_usuario_ejecutor": 105
+}
 ```
 
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Profesionales consultados exitosamente",
+  "profesionales": [
+    {
+      "id_usuario": 47,
+      "nombre_completo": "Carlos Andrés Mendoza",
+      "correo": "cmendoza@teker.com",
+      "url_foto": "/uploads/fotos/47.jpg",
+      "id_estado": 1
+    }
+  ]
+}
+```
+
+---
+
+## Método: p_guardar_horarios
+
+### 1. Descripción en Lenguaje Natural
+Configura la disponibilidad semanal de atención de un profesional de salud, soportando múltiples rangos de horas por día, vigencias por fecha y sincronización automática de ausencias por festivos no laborables:
+- Valida la integridad del payload JSON y los turnos recibidos en memoria (días canónicos, orden de horas y coherencia de vigencias).
+- Si incluye turnos en domingo, valida que el médico cuente con autorización activa para trabajar festivos.
+- Efectúa validación cruzada en memoria entre rangos recibidos para evitar solapamientos internos dentro de la misma vigencia y convenio.
+- Valida el arreglo opcional de días festivos no laborables contra el calendario oficial nacional, impidiendo domingos (que se configuran en la grilla semanal).
+- Ejecuta el borrado previo controlado: reemplazo total histórico o limpieza quirúrgica de la vigencia origen modificada para prevenir falsos cruces.
+- Valida unicidad de Horario Base (solo un horario sin fecha fin) y no traslape contra turnos previos en base de datos.
+- Desestructura el JSON e inserta masivamente los nuevos horarios en la tabla relacional.
+- Por cada festivo no laborable, comprueba no duplicidad y genera automáticamente la ausencia correspondiente de un día.
+- Confirma atómicamente toda la operación (horarios y ausencias) con commit unificado o revierte y genera log forense ante anomalías.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Validación de Entrada]**: Si el payload viene nulo o no contiene el identificador del usuario; Salida inmediata con código -20001 por datos obligatorios ausentes
+- **Paso 02 [Validación Estructural de Turnos]**: Si algún turno contiene un día no canónico, horas invertidas o fechas mal estructuradas; Salida inmediata con código -20002 o -20003 por formato horario inválido
+- **Paso 03 [Regla de Turnos en Domingo - Bifurcación]**: Si el turno corresponde al día domingo y el usuario no labora en festivos; Salida inmediata con código -20010 por restricción dominical (`pkgca_tkr_usuarios.f_trabaja_festivos`)
+- **Paso 04 [Validación de Solapamiento en Memoria]**: Si existen dos rangos con cruce de horas para el mismo día y mismo convenio dentro del período de vigencia; Salida inmediata con código -20008 por traslape interno de turnos
+- **Paso 05 [Validación de Festivos No Laborables]**: Si alguna fecha festiva es domingo o no se encuentra registrada en el calendario oficial nacional; Salida inmediata con código -20012 o -20013 por fecha festiva inválida (`pkgca_tkr_festivos.f_es_festivo`)
+- **Paso 06 [Limpieza Total Histórica - Bifurcación]**: Si se solicita reemplazo integral de la programación del médico; Elimina todos los horarios históricos del profesional y vuelve al flujo principal (`pkgca_tkr_horarios_profesional.p_borrar_x_profesional`)
+- **Paso 07 [Limpieza de Vigencia Modificada - Bifurcación]**: Si se está editando una vigencia previa o se indicó reemplazo de vigencia; Elimina los horarios previos de dicha vigencia y vuelve al flujo principal (`pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas`)
+- **Paso 08 [Unicidad de Horario Base]**: Si se intenta registrar un horario sin fecha final cuando ya existe otro horario base registrado para el profesional; Salida inmediata con código -20011 por existencia de horario base (`pkgca_tkr_horarios_profesional.f_existe_horario_base`)
+- **Paso 09 [Validación de Traslapes en Base de Datos]**: Si el horario con fecha final colisiona con turnos registrados previamente para ese profesional y convenio; Salida inmediata con código -20009 por conflicto de horarios en base de datos (`PKGCN_HORARIOS.f_existe_traslape_horario`)
+- **Paso 10 [Persistencia Relacional de Turnos]**: Desestructura el arreglo mediante extracción relacional e inserta los nuevos turnos en el sistema; `PKGCN_HORARIOS.p_guardar_horarios_profesional`
+- **Paso 11 [Generación de Ausencias por Festivo - Bifurcación]**: Si la fecha festiva no se encuentra previamente cubierta en el calendario del profesional; Inserta la ausencia automática de un día y vuelve al flujo principal (`PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar`)
+- **Paso 12 [Confirmación Transaccional Atómica]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
+- **Paso 13 [Control Forense de Excepciones]**: Ante cualquier error inesperado; Revierte la transacción, registra el volcado del fallo en la bitácora de errores (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `pkgca_tkr_usuarios.f_trabaja_festivos` | `pkgca_` | Función | Validar si el médico tiene autorización para laborar turnos dominicales | Si se procesa turno de día domingo |
+| 2 | `pkgca_tkr_festivos.f_es_festivo` | `pkgca_` | Función | Validar existencia de cada fecha en el calendario nacional oficial | Si incluye festivos no laborables |
+| 3 | `pkgca_tkr_horarios_profesional.p_borrar_x_profesional` | `pkgca_` | Procedimiento | Eliminar la totalidad de horarios previos del profesional | Bifurcación: Si reemplazar_todo = 1 (vuelve al flujo) |
+| 4 | `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` | `pkgca_` | Procedimiento | Eliminar horarios previos de una vigencia específica modificada | Bifurcación: Si se edita vigencia (vuelve al flujo) |
+| 5 | `pkgca_tkr_horarios_profesional.f_existe_horario_base` | `pkgca_` | Función | Verificar que no exista otro horario base sin fecha final | Si el lote contiene fecha_final nula |
+| 6 | `PKGCN_HORARIOS.f_existe_traslape_horario` | `pkgcn_` | Función | Detectar colisiones de horas y fechas contra turnos en base de datos | Para turnos con fecha fin en modo incremental |
+| 7 | `PKGCN_HORARIOS.p_guardar_horarios_profesional` | `pkgcn_` | Procedimiento | Insertar masivamente turnos usando extracción relacional JSON_TABLE | En flujo principal tras validar traslapes |
+| 8 | `pkgca_tkr_ausencias_profesional.f_existe_ausencia` | `pkgca_` | Función | Verificar si la fecha festiva ya está cubierta para no duplicar | Por cada festivo no laborable |
+| 9 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar` | `DAO` | Procedimiento | Persistir ausencia automática de un día por festivo no laborable | Bifurcación: Si festivo no cubierto (vuelve al flujo) |
+| 10 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Flujo principal al completar operaciones |
+| 11 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Registrar volcado técnico de excepción en tkr_errores | Bloque WHEN OTHERS ante fallos |
+
+```json
+// JSON ENTRADA
+{
+  "id_usuario": 47,
+  "reemplazar_todo": 0,
+  "reemplazar_vigencia": 1,
+  "fecha_inicial_origen": "2026-12-01",
+  "fecha_final_origen": "2026-12-31",
+  "horarios": [
+    {
+      "dia_semana": "LU",
+      "hora_desde": "08:00",
+      "hora_hasta": "12:00",
+      "fecha_inicial": "2026-12-01",
+      "fecha_final": "2026-12-31",
+      "id_convenio": null
+    }
+  ],
+  "festivos_no_laborables": [
+    {
+      "fecha": "2026-12-08",
+      "nombre": "Inmaculada Concepción"
+    }
+  ]
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Horarios y ausencias guardados exitosamente",
+  "id_usuario": 47,
+  "ausencias_creadas": 1,
+  "ausencias_existentes": 0
+}
+```
+
+---
+
+## Método: p_consultar_agenda
+
+### 1. Descripción en Lenguaje Natural
+Consulta la ficha técnica y la agenda completa de un profesional específico:
+- Valida la presencia obligatoria del identificador del profesional (`id_usuario`).
+- Evalúa y registra telemetría técnica si la traza se encuentra activa.
+- Delega en el caso de negocio la extracción multi-tabla que consolida los datos personales del profesional, su foto de perfil, la colección cronológica de turnos activos y el listado histórico de ausencias programadas.
+- Cierra la traza con éxito y retorna la estructura consolidada en formato JSON.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Validación de Entrada]**: Si el payload es nulo o no contiene el identificador del usuario; Salida inmediata con código -20001 por datos obligatorios faltantes
+- **Paso 02 [Evaluación de Trazabilidad]**: Si el servicio tiene telemetría activa en las reglas de auditoría; Registra el inicio de traza y vuelve al flujo principal (`uti_manejo_trazas_pkg.f_debe_trazar`)
+- **Paso 03 [Apertura de Traza Técnica]**: Si la telemetría se encuentra habilitada; Apertura el registro de seguimiento en la bitácora de auditoría y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_iniciar_traza`)
+- **Paso 04 [Consulta Integral de Agenda]**: Extrae de forma consolidada la ficha del profesional, los turnos semanales vigentes y el listado de ausencias; `PKGCN_HORARIOS.p_consultar_agenda_profesional_json`
+- **Paso 05 [Telemetría Exitosa]**: Si la traza se encuentra activa; Registra el cierre exitoso de la ejecución en la auditoría y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_finalizar_traza`)
+- **Paso 06 [Control Forense de Excepciones]**: Ante excepciones no controladas; Registra el error en telemetría (`uti_manejo_trazas_pkg.p_finalizar_traza_error`), persiste el registro forense en la bitácora de incidentes (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `uti_manejo_trazas_pkg.f_debe_trazar` | `uti_` | Función | Verificar configuración de telemetría activa | Al inicio del procedimiento |
+| 2 | `uti_manejo_trazas_pkg.p_iniciar_traza` | `uti_` | Procedimiento | Registrar apertura de traza técnica en tkr_traza_ejecucion | Bifurcación: Si telemetría activa (vuelve al flujo) |
+| 3 | `PKGCN_HORARIOS.p_consultar_agenda_profesional_json` | `pkgcn_` | Procedimiento | Realizar consulta multi-tabla y consolidar JSON de agenda | En flujo principal |
+| 4 | `pkgcn_profesionales.f_url_foto_profesional` | `pkgcn_` | Función | Resolver URL de fotografía del profesional | Invocado dentro de consulta SQL |
+| 5 | `uti_manejo_trazas_pkg.p_finalizar_traza` | `uti_` | Procedimiento | Cerrar traza técnica con estado exitoso | Al completar la consulta sin fallos |
+| 6 | `uti_manejo_trazas_pkg.p_finalizar_traza_error` | `uti_` | Procedimiento | Registrar estado ERROR en telemetría técnica | Bloque WHEN OTHERS ante fallos |
+| 7 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Persistir registro técnico del error en tkr_errores | Bloque WHEN OTHERS ante fallos |
+
+```json
+// JSON ENTRADA
+{
+  "id_usuario": 47
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Agenda consultada exitosamente",
+  "profesional": {
+    "id_usuario": 47,
+    "nombre_completo": "Carlos Andrés Mendoza",
+    "correo": "cmendoza@teker.com",
+    "url_foto": "/uploads/fotos/47.jpg"
+  },
+  "horarios": [],
+  "ausencias": []
+}
+```
+
+---
+
+## Método: p_registrar_ausencia
+
+### 1. Descripción en Lenguaje Natural
+Registra un período programado en el que el profesional no prestará atención médica (permisos, incapacidades, vacaciones):
+- Valida la presencia de `id_usuario`, `fecha_inicial` y `fecha_final`.
+- Valida la coherencia de fechas asegurando que la fecha inicial no sea posterior a la fecha final.
+- Si la telemetría está habilitada, inicia el registro de trazabilidad técnica.
+- Delega la inserción relacional directa en el DAO estándar de persistencia de ausencias.
+- Confirma la transacción en la base de datos de manera atómica con commit controlado, finaliza la traza y retorna el identificador de la ausencia registrada.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Validación de Entrada]**: Si el payload es nulo, no contiene el usuario o faltan las fechas; Salida inmediata con código -20001 o -20002 por parámetros incompletos
+- **Paso 02 [Validación de Coherencia de Fechas]**: Si el formato de fechas es inválido o la fecha de inicio es superior a la fecha final; Salida inmediata con código -20003 o -20004 por intervalo cronológico inválido
+- **Paso 03 [Evaluación de Trazabilidad]**: Si el método tiene habilitada la telemetría; Apertura la traza técnica de seguimiento y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_iniciar_traza`)
+- **Paso 04 [Persistencia de la Ausencia]**: Registra el período de ausencia programada en la tabla relacional de ausencias; `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar`
+- **Paso 05 [Confirmación Transaccional]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
+- **Paso 06 [Telemetría Exitosa]**: Registra el cierre exitoso de la transacción en la auditoría y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_finalizar_traza`)
+- **Paso 07 [Control Forense de Excepciones]**: Ante fallos imprevistos; Revierte los cambios, registra el error en telemetría (`uti_manejo_trazas_pkg.p_finalizar_traza_error`), guarda el registro forense (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `uti_manejo_trazas_pkg.f_debe_trazar` | `uti_` | Función | Determinar si el método debe trazar ejecución | Al inicio del procedimiento |
+| 2 | `uti_manejo_trazas_pkg.p_iniciar_traza` | `uti_` | Procedimiento | Apertura registro de telemetría | Bifurcación: Si f_debe_trazar = TRUE (vuelve al flujo) |
+| 3 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar` | `DAO` | Procedimiento | Insertar registro de ausencia en tkr_ausencias_profesional | Tras validaciones de parámetros y fechas |
+| 4 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Flujo principal tras insertar ausencia |
+| 5 | `uti_manejo_trazas_pkg.p_finalizar_traza` | `uti_` | Procedimiento | Cerrar traza técnica exitosa | Antes de responder al cliente |
+| 6 | `uti_manejo_trazas_pkg.p_finalizar_traza_error` | `uti_` | Procedimiento | Cerrar traza con estado de error | Bloque WHEN OTHERS ante fallos |
+| 7 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Registrar información forense en tkr_errores | Bloque WHEN OTHERS ante fallos |
+
+```json
+// JSON ENTRADA
+{
+  "id_usuario": 47,
+  "fecha_inicial": "2026-12-24",
+  "fecha_final": "2026-12-31",
+  "motivo": "Vacaciones de fin de año"
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Ausencia registrada exitosamente",
+  "id": 501
+}
+```
+
+---
+
+## Método: p_consultar_ausencias
+
+### 1. Descripción en Lenguaje Natural
+Consulta el catálogo de ausencias registradas pudiendo aplicar filtros opcionales por profesional o intervalo de fechas:
+- Extrae los parámetros de filtro del JSON de entrada.
+- Delega en el caso de negocio multi-tabla la ejecución de la consulta que recupera las ausencias enriquecidas relacionalmente con nombres completos del profesional y URL de su foto.
+- Retorna el listado consolidado en formato JSON estructurado.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Consulta Multi-Tabla de Ausencias]**: Extrae los períodos de ausencia filtrados por profesional y rango enriquecidos con datos del usuario; `PKGCN_HORARIOS.pr_consultar_ausencias_json`
+- **Paso 02 [Control Forense de Excepciones]**: Ante fallos en la consulta; Registra el incidente técnico en la bitácora de errores (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `PKGCN_HORARIOS.pr_consultar_ausencias_json` | `pkgcn_` | Procedimiento | Realizar consulta relacional multi-tabla y generar estructura JSON | En flujo principal |
+| 2 | `pkgcn_profesionales.f_url_foto_profesional` | `pkgcn_` | Función | Resolver URL de la imagen del profesional | Invocado internamente por consulta SQL |
+| 3 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Persistir registro técnico del error en tkr_errores | Bloque WHEN OTHERS ante fallos |
+
+```json
+// JSON ENTRADA
+{
+  "id_usuario": 47,
+  "fecha_desde": "2026-01-01",
+  "fecha_hasta": "2026-12-31"
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Ausencias consultadas exitosamente",
+  "ausencias": [
+    {
+      "id": 501,
+      "id_usuario": 47,
+      "nombre_completo": "Carlos Andrés Mendoza",
+      "fecha_inicial": "2026-12-24",
+      "fecha_final": "2026-12-31",
+      "motivo": "Vacaciones de fin de año"
+    }
+  ]
+}
+```
+
+---
+
+## Método: p_eliminar_ausencia
+
+### 1. Descripción en Lenguaje Natural
+Elimina un registro de ausencia previamente configurado a partir de su clave primaria (`id`):
+- Valida la presencia del identificador obligatorio.
+- Verifica en la capa de persistencia DAO que el registro exista antes de intentar su borrado.
+- Delega en el DAO la supresión física del registro.
+- Confirma atómicamente la transacción con commit gobernado y emite respuesta de confirmación.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Validación de Entrada]**: Si el payload es nulo o carece del identificador de la ausencia; Salida inmediata con código -20001 por parámetro ausente
+- **Paso 02 [Existencia de Ausencia]**: Si el registro de ausencia no existe en la base de datos; Salida inmediata con código -20002 por ausencia no encontrada (`PKGTKR_AUSENCIAS_PROFESIONAL_DAO.f_existe`)
+- **Paso 03 [Eliminación en Persistencia]**: Suprime físicamente el registro de ausencia correspondiente a la clave primaria; `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_eliminar`
+- **Paso 04 [Confirmación Transaccional]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
+- **Paso 05 [Control Forense de Excepciones]**: Si ocurre un fallo en el borrado; Revierte la transacción, almacena la traza del error (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.f_existe` | `DAO` | Función | Comprobar existencia del registro por clave primaria | Previo a invocar eliminación |
+| 2 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_eliminar` | `DAO` | Procedimiento | Suprimir físicamente la ausencia en tkr_ausencias_profesional | Si el registro existe |
+| 3 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Al culminar la eliminación física |
+| 4 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Registrar información forense del incidente en tkr_errores | Bloque WHEN OTHERS ante fallos |
+
+```json
+// JSON ENTRADA
+{
+  "id": 501
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Ausencia eliminada exitosamente"
+}
+```
+
+---
+
+## Método: p_eliminar_horarios_vigencia
+
+### 1. Descripción en Lenguaje Natural
+Elimina todos los horarios de un profesional asociados a un rango de vigencia de fechas específico, advirtiendo al usuario si existen ausencias registradas dentro de dicho período:
+- Valida la presencia obligatoria de `id_usuario` y `fecha_inicial`.
+- Suprime físicamente de la tabla de horarios todos los turnos que coincidan con la vigencia especificada.
+- Consulta en la tabla de ausencias si existen períodos no laborables registrados dentro del intervalo borrado.
+- Si existen ausencias, añade un mensaje de advertencia e informa la cantidad de ausencias para que el usuario determine si amerita gestionarlas manualmente.
+- Confirma atómicamente la transacción con commit controlado y retorna la respuesta estructurada.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Validación de Entrada]**: Si el payload es nulo o faltan el usuario y la fecha inicial; Salida inmediata con código -20001 por parámetros requeridos incompletos
+- **Paso 02 [Eliminación Mono-Tabla de Turnos]**: Suprime todos los turnos del profesional correspondientes al rango de vigencia indicado; `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas`
+- **Paso 03 [Verificación de Ausencias en el Período - Bifurcación]**: Si existen ausencias registradas dentro de la vigencia eliminada; Asigna indicador de advertencia al mensaje informativo y vuelve al flujo principal (`pkgca_tkr_ausencias_profesional.f_contar_ausencias_rango`)
+- **Paso 04 [Confirmación Transaccional]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
+- **Paso 05 [Control Forense de Excepciones]**: Ante fallos no controlados; Revierte las operaciones, registra el incidente forense en la bitácora de errores (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `pkgca_tkr_horarios_profesional.p_borrar_x_rango_fechas` | `pkgca_` | Procedimiento | Eliminar los turnos del rango de fechas en tkr_horarios_profesional | Tras validar parámetros obligatorios |
+| 2 | `pkgca_tkr_ausencias_profesional.f_contar_ausencias_rango` | `pkgca_` | Función | Contar ausencias registradas en el período eliminado | Bifurcación: Si existen ausencias (vuelve al flujo) |
+| 3 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Al culminar las operaciones en base de datos |
+| 4 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Persistir registro técnico del error en tkr_errores | Bloque WHEN OTHERS ante fallos |
+
+```json
+// JSON ENTRADA
+{
+  "id_usuario": 47,
+  "fecha_inicial": "2026-12-01",
+  "fecha_final": "2026-12-31"
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Horarios de la vigencia eliminados exitosamente. Existen 2 ausencia(s) registradas en este periodo; verifique si requiere eliminarlas.",
+  "id_usuario": 47,
+  "tiene_ausencias": 1,
+  "cantidad_ausencias": 2
+}
+```
+
+---
+
+## Método: p_actualizar_trabaja_festivos
+
+### 1. Descripción en Lenguaje Natural
+Actualiza la configuración de trabajo en días festivos y domingos para un usuario médico, ofreciendo la opción de eliminar de forma automática los horarios configurados para el día domingo:
+- Valida los parámetros obligatorios `id_usuario` y el indicador `trabaja_festivos` (restringido a `'S'` o `'N'`).
+- Actualiza la columna correspondiente en la tabla de usuarios.
+- Si el usuario pasa a no trabajar festivos (`'N'`) y se solicita expresamente el borrado de domingos (`borrar_domingos = 1`), elimina atómicamente todos los turnos del día domingo (`dia_semana = 'DO'`).
+- Confirma atómicamente los cambios mediante commit controlado y retorna la respuesta de éxito.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Paso 01 [Validación de Entrada]**: Si el payload es nulo, no especifica el usuario o el valor no es 'S' ni 'N'; Salida inmediata con código -20001 o -20009 por formato de indicador inválido
+- **Paso 02 [Actualización de Indicador en Usuario]**: Actualiza la bandera de trabajo en festivos del usuario en la tabla de cuentas; `pkgca_tkr_usuarios.p_actualizar_trabaja_festivos`
+- **Paso 03 [Eliminación de Turnos Dominicales - Bifurcación]**: Si el profesional desactiva festivos y se instruye borrar domingos; Suprime los turnos registrados para el día domingo y vuelve al flujo principal (`pkgca_tkr_horarios_profesional.p_borrar_x_dia_semana`)
+- **Paso 04 [Confirmación Transaccional]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
+- **Paso 05 [Control Forense de Excepciones]**: Ante errores en la actualización; Revierte los cambios, almacena el incidente en la bitácora forense (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `pkgca_tkr_usuarios.p_actualizar_trabaja_festivos` | `pkgca_` | Procedimiento | Actualizar columna trabaja_festivos en tkr_usuarios | Tras validar entrada |
+| 2 | `pkgca_tkr_horarios_profesional.p_borrar_x_dia_semana` | `pkgca_` | Procedimiento | Suprimir turnos de domingo en tkr_horarios_profesional | Bifurcación: Si trabaja_festivos='N' y borrar_domingos=1 (vuelve al flujo) |
+| 3 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Al finalizar las actualizaciones |
+| 4 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Registrar información forense en tkr_errores | Bloque WHEN OTHERS ante fallos |
+
+```json
+// JSON ENTRADA
+{
+  "id_usuario": 47,
+  "trabaja_festivos": "N",
+  "borrar_domingos": 1
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Configuración de festivos actualizada exitosamente. Se eliminaron los turnos del día domingo."
+}
+```

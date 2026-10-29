@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Secuencia de Sincronización por Cola y Consulta de Disponibilidad",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/sequence.html",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "job", "type": "messagebus", "label": "Scheduler Job", "sublabel": "cada 20s" },
+    { "id": "dao", "type": "database", "label": "Cola DAO", "sublabel": "tkr_refrescar_agenda" },
+    { "id": "pkgln_h", "type": "backend", "label": "PKGLN_HORARIOS", "sublabel": "orquestador" },
+    { "id": "pkgcn_h", "type": "backend", "label": "PKGCN_HORARIOS", "sublabel": "citas + MERGE" },
+    { "id": "bitmap", "type": "database", "label": "Bitmap DB", "sublabel": "288 bits" },
+    { "id": "pkgln_d", "type": "frontend", "label": "Directorio UI", "sublabel": "consulta turnos" }
+  ],
+  "segments": [
+    { "from": 145, "to": 315, "label": "1. Refresco Asíncrono (Job 20s)" },
+    { "from": 330, "to": 445, "label": "2. Depuración de Cola" },
+    { "from": 460, "to": 555, "label": "3. Consulta en Directorio" }
+  ],
+  "messages": [
+    { "id": "m1", "from": "job", "to": "pkgln_h", "y": 160, "label": "p_actualizar_agenda()", "variant": "emphasis" },
+    { "id": "m2", "from": "pkgln_h", "to": "dao", "y": 190, "label": "p_consultar_registros", "variant": "default" },
+    { "id": "m3", "from": "dao", "to": "pkgln_h", "y": 220, "label": "id_usuario=6, fecha=2026-10-30", "variant": "return" },
+    { "id": "m4", "from": "pkgln_h", "to": "pkgcn_h", "y": 250, "label": "f_consultar_citas_ocupadas(6)", "variant": "emphasis" },
+    { "id": "m5", "from": "pkgcn_h", "to": "pkgln_h", "y": 280, "label": "cita id=737 (10:00-10:20)", "variant": "return" },
+    { "id": "m6", "from": "pkgln_h", "to": "pkgcn_h", "y": 310, "label": "p_sincronizar_agenda_slots", "variant": "emphasis" },
+    { "id": "m7", "from": "pkgcn_h", "to": "bitmap", "y": 345, "label": "MERGE bitmap_ocupado (bits 121..124)", "variant": "emphasis" },
+    { "id": "m8", "from": "bitmap", "to": "pkgln_h", "y": 375, "label": "codigo = 0 (11 slots libres)", "variant": "return" },
+    { "id": "m9", "from": "pkgln_h", "to": "dao", "y": 410, "label": "p_eliminar(id) + COMMIT", "variant": "security" },
+    { "id": "m10", "from": "pkgln_d", "to": "bitmap", "y": 480, "label": "SELECT bitmap_ocupado (2026-10-30)", "variant": "emphasis" },
+    { "id": "m11", "from": "bitmap", "to": "pkgln_d", "y": 520, "label": "retorna 11 turnos (10:00 excluido)", "variant": "return" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Sincronización Puntual por Fecha", "items": ["p_actualizar_agenda envía id_profesional y fecha YYYY-MM-DD", "Solo recalcula el día afectado en menos de 20 ms"] },
+    { "dot": "emerald", "title": "Lectura Directa en Directorio", "items": ["Directorio lee bitmap_ocupado y descuenta los bloques con '1'"] }
+  ]
+}
+

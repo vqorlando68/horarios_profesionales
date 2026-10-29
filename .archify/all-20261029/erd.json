@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "diagram_type": "erd",
+  "meta": {
+    "title": "Modelo Entidad-Relación: Horarios, Citas y Disponibilidad Bitmap",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/erd.html",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "mode": "grid",
+    "gapY": 42,
+    "gapX": 78
+  },
+  "entities": [
+    {
+      "id": "tkr_usuarios",
+      "label": "tkr_usuarios",
+      "tag": "profesionales",
+      "row": 0,
+      "col": 0,
+      "attributes": [
+        { "name": "id", "type": "NUMBER(12)", "key": "pk" },
+        { "name": "nombres", "type": "VARCHAR2(120)" },
+        { "name": "apellidos", "type": "VARCHAR2(120)" },
+        { "name": "id_estado_usuario", "type": "NUMBER(2)" },
+        { "name": "trabaja_festivos", "type": "VARCHAR2(1)" }
+      ]
+    },
+    {
+      "id": "tkr_ausencias_profesional",
+      "label": "tkr_ausencias_profesional",
+      "tag": "profesionales",
+      "row": 1,
+      "col": 0,
+      "attributes": [
+        { "name": "id", "type": "NUMBER(12)", "key": "pk" },
+        { "name": "id_usuario", "type": "NUMBER(12)", "key": "fk", "references": "tkr_usuarios.id" },
+        { "name": "fecha_inicial", "type": "DATE" },
+        { "name": "fecha_final", "type": "DATE" },
+        { "name": "motivo", "type": "VARCHAR2(500)" }
+      ]
+    },
+    {
+      "id": "tkr_horarios_profesional",
+      "label": "tkr_horarios_profesional",
+      "tag": "programacion",
+      "row": 0,
+      "col": 1,
+      "width": 265,
+      "attributes": [
+        { "name": "id", "type": "NUMBER(12)", "key": "pk" },
+        { "name": "id_usuario", "type": "NUMBER(12)", "key": "fk", "references": "tkr_usuarios.id" },
+        { "name": "dia_semana", "type": "VARCHAR2(2)" },
+        { "name": "hora_desde", "type": "VARCHAR2(5)" },
+        { "name": "hora_hasta", "type": "VARCHAR2(5)" },
+        { "name": "fecha_inicial", "type": "DATE" },
+        { "name": "fecha_final", "type": "DATE" },
+        { "name": "id_tipo_aseguramiento", "type": "NUMBER(2)" },
+        { "name": "activo", "type": "NUMBER(1)" }
+      ]
+    },
+    {
+      "id": "tkr_citas",
+      "label": "tkr_citas",
+      "tag": "programacion",
+      "row": 1,
+      "col": 1,
+      "attributes": [
+        { "name": "id", "type": "NUMBER(12)", "key": "pk" },
+        { "name": "id_profesional", "type": "NUMBER(12)", "key": "fk", "references": "tkr_usuarios.id" },
+        { "name": "id_estado_cita", "type": "NUMBER(2)" },
+        { "name": "fecha_inicio_cita", "type": "DATE" },
+        { "name": "fecha_final_cita", "type": "DATE" }
+      ]
+    },
+    {
+      "id": "tkr_disponibilidad_bitmap",
+      "label": "tkr_disponibilidad_bitmap",
+      "tag": "sincronizacion",
+      "row": 0,
+      "col": 2,
+      "width": 265,
+      "attributes": [
+        { "name": "id", "type": "NUMBER(12)", "key": "pk" },
+        { "name": "id_usuario", "type": "NUMBER(12)", "key": "fk", "references": "tkr_usuarios.id" },
+        { "name": "fecha", "type": "DATE" },
+        { "name": "id_tipo_aseguramiento", "type": "NUMBER(2)" },
+        { "name": "modalidad", "type": "VARCHAR2(1)" },
+        { "name": "bitmap_disponible", "type": "VARCHAR2(288)" },
+        { "name": "bitmap_ocupado", "type": "VARCHAR2(288)" },
+        { "name": "slots_disponibles", "type": "NUMBER(4)" }
+      ]
+    },
+    {
+      "id": "tkr_refrescar_agenda",
+      "label": "tkr_refrescar_agenda",
+      "tag": "sincronizacion",
+      "row": 1,
+      "col": 2,
+      "attributes": [
+        { "name": "id", "type": "NUMBER(12)", "key": "pk" },
+        { "name": "id_usuario", "type": "NUMBER(12)", "key": "fk", "references": "tkr_usuarios.id" },
+        { "name": "fecha", "type": "DATE" },
+        { "name": "comentarios", "type": "VARCHAR2(4000)" }
+      ]
+    }
+  ],
+  "relationships": [
+    { "id": "r_hor_usu", "from": "tkr_horarios_profesional", "to": "tkr_usuarios", "fromCardinality": "many", "toCardinality": "one" },
+    { "id": "r_aus_usu", "from": "tkr_ausencias_profesional", "to": "tkr_usuarios", "fromCardinality": "many", "toCardinality": "one" },
+    { "id": "r_cit_usu", "from": "tkr_citas", "to": "tkr_usuarios", "fromCardinality": "many", "toCardinality": "one" },
+    { "id": "r_bit_usu", "from": "tkr_disponibilidad_bitmap", "to": "tkr_usuarios", "fromCardinality": "many", "toCardinality": "one" },
+    { "id": "r_ref_usu", "from": "tkr_refrescar_agenda", "to": "tkr_usuarios", "fromCardinality": "many", "toCardinality": "one" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Entidad Central (tkr_usuarios)", "items": ["Todas las tablas de horario, ausencias, citas, bitmaps y cola referencian a tkr_usuarios.id"] },
+    { "dot": "emerald", "title": "Sincronización de Agenda", "items": ["tkr_refrescar_agenda actúa como cola transaccional", "tkr_disponibilidad_bitmap consolida los vectores binarios de 288 posiciones por fecha"] }
+  ]
+}

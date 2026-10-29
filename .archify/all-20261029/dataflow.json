@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Pipeline de Datos hacia el Vector Binario tkr_disponibilidad_bitmap",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/dataflow.html",
+    "quality_profile": "showcase"
+  },
+  "stages": [
+    { "label": "Fuentes" },
+    { "label": "Reglas Calendario" },
+    { "label": "Cálculo Binario" },
+    { "label": "Almacenamiento" },
+    { "label": "Consumo UI" }
+  ],
+  "nodes": [
+    { "id": "horarios", "type": "database", "label": "Horarios Vigentes", "sublabel": "tkr_horarios_profesional", "stage": 0, "row": 0, "tag": "turnos" },
+    { "id": "citas", "type": "database", "label": "Citas Activas", "sublabel": "tkr_citas (2, 3)", "stage": 0, "row": 2, "tag": "ocupación" },
+    { "id": "ausencias", "type": "security", "label": "Ausencias/Fest", "sublabel": "tkr_ausencias / festivos", "stage": 1, "row": 0, "tag": "bloqueos" },
+    { "id": "jerarquia", "type": "backend", "label": "Selector Jerarquía", "sublabel": "POR_DIA > PERS > BASE", "stage": 1, "row": 2, "tag": "prioridad" },
+    { "id": "motor_bits", "type": "backend", "label": "Motor 288 Bloques", "sublabel": "intervalos 5 min", "stage": 2, "row": 1, "tag": "PKGLN" },
+    { "id": "bitmap_tbl", "type": "database", "label": "Tabla Bitmap", "sublabel": "tkr_disponibilidad_bitmap", "stage": 3, "row": 1, "tag": "288 chars" },
+    { "id": "modal_turnos", "type": "frontend", "label": "Modal Turnos", "sublabel": "directorio-profesionales", "stage": 4, "row": 0, "tag": "slots 20m" },
+    { "id": "reporte_sin", "type": "frontend", "label": "Reporte Sin Agenda", "sublabel": "auditoría cobertura", "stage": 4, "row": 2, "tag": "control" }
+  ],
+  "flows": [
+    { "id": "f1", "from": "horarios", "to": "jerarquia", "label": "franjas activas", "variant": "emphasis" },
+    { "id": "f2", "from": "ausencias", "to": "motor_bits", "label": "filtro bloqueo", "variant": "security" },
+    { "id": "f3", "from": "jerarquia", "to": "motor_bits", "label": "turno ganador", "variant": "emphasis" },
+    { "id": "f4", "from": "citas", "to": "motor_bits", "label": "rango ocupado", "variant": "emphasis" },
+    { "id": "f5", "from": "motor_bits", "to": "bitmap_tbl", "label": "MERGE bitmaps", "variant": "emphasis" },
+    { "id": "f6", "from": "bitmap_tbl", "to": "modal_turnos", "label": "slots libres", "variant": "emphasis" },
+    { "id": "f7", "from": "bitmap_tbl", "to": "reporte_sin", "label": "slots = 0", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Codificación de 288 Bits", "items": ["Cada día tiene 1440 minutos divididos en 288 bloques de 5 minutos", "Un turno de 20 min ocupa 4 bits consecutivos (ej. 10:00-10:20 -> bits 121..124)"] },
+    { "dot": "rose", "title": "Precedencia de Bloqueos", "items": ["Ausencias programadas anulan cualquier horario del día", "Festivos y domingos se bloquean si trabaja_festivos = 'N' (salvo horario POR_DIA)"] }
+  ]
+}

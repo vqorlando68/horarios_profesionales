@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "diagram_type": "class",
+  "meta": {
+    "title": "Contratos y Paquetes PL/SQL (Arquitectura de 5 Capas Oracle)",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/class.html",
+    "quality_profile": "showcase"
+  },
+  "layout": {
+    "mode": "grid"
+  },
+  "types": [
+    {
+      "id": "pkgln_horarios",
+      "label": "PKGLN_HORARIOS",
+      "kind": "class",
+      "sublabel": "Orquestador Transaccional Horarios",
+      "row": 0,
+      "col": 0,
+      "methods": [
+        { "name": "p_grabar_horario", "parameters": "p_json_entrada CLOB", "returns": "CLOB", "visibility": "public" },
+        { "name": "p_sincronizar_agenda", "parameters": "p_json_entrada CLOB", "returns": "CLOB", "visibility": "public" },
+        { "name": "p_actualizar_agenda", "parameters": "", "returns": "void", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "pkgln_directorio",
+      "label": "PKGLN_DIRECTORIO_PROFESIONALES",
+      "kind": "class",
+      "sublabel": "Orquestador Transaccional Directorio",
+      "row": 0,
+      "col": 1,
+      "methods": [
+        { "name": "p_consultar_directorio", "parameters": "p_json_entrada CLOB", "returns": "CLOB", "visibility": "public" },
+        { "name": "p_consultar_disponibilidad", "parameters": "p_json_entrada CLOB", "returns": "CLOB", "visibility": "public" },
+        { "name": "p_actualizar_slots_cita", "parameters": "p_json_entrada CLOB", "returns": "CLOB", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "pkgcn_horarios",
+      "label": "PKGCN_HORARIOS",
+      "kind": "class",
+      "sublabel": "Capa Multi-Tabla (1 SQL/DML por método)",
+      "row": 1,
+      "col": 0,
+      "methods": [
+        { "name": "f_consultar_citas_ocupadas", "parameters": "p_id_usuario, p_ini, p_fin", "returns": "SYS_REFCURSOR", "visibility": "public" },
+        { "name": "p_sincronizar_agenda_slots", "parameters": "p_id_usuario, p_fecha, bitmaps", "returns": "void", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "pkgca_bitmap",
+      "label": "PKGCA_TKR_DISPONIBILIDAD_BITMAP",
+      "kind": "class",
+      "sublabel": "Capa Acceso No-PK Mono-Tabla",
+      "row": 1,
+      "col": 1,
+      "methods": [
+        { "name": "p_actualizar_bitmap_ocupado", "parameters": "p_json_entrada CLOB", "returns": "NUMBER", "visibility": "public" },
+        { "name": "f_consultar_x_fecha", "parameters": "p_json_entrada CLOB", "returns": "SYS_REFCURSOR", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "dao_refrescar",
+      "label": "PKGTKR_REFRESCAR_AGENDA_DAO",
+      "kind": "class",
+      "sublabel": "Capa DAO Estándar (20 métodos CRUD)",
+      "row": 2,
+      "col": 0,
+      "methods": [
+        { "name": "p_consultar_registros", "parameters": "OUT t_tkr_refrescar_agenda", "returns": "void", "visibility": "public" },
+        { "name": "p_eliminar", "parameters": "pty_id NUMBER", "returns": "void", "visibility": "public" },
+        { "name": "p_actualizar", "parameters": "pro_tkr_refrescar_agenda", "returns": "void", "visibility": "public" }
+      ]
+    },
+    {
+      "id": "pkgcn_directorio",
+      "label": "PKGCN_DIRECTORIO_PROFESIONALES",
+      "kind": "class",
+      "sublabel": "Consultas Multi-Tabla Directorio",
+      "row": 2,
+      "col": 1,
+      "methods": [
+        { "name": "p_consultar_profesionales_json", "parameters": "p_json_entrada CLOB", "returns": "CLOB", "visibility": "public" },
+        { "name": "f_consultar_turnos", "parameters": "p_json_entrada CLOB", "returns": "SYS_REFCURSOR", "visibility": "public" }
+      ]
+    }
+  ],
+  "relationships": [
+    { "id": "rel1", "from": "pkgln_horarios", "to": "pkgcn_horarios", "kind": "dependency", "label": "delega SQL/MERGE" },
+    { "id": "rel2", "from": "pkgln_horarios", "to": "dao_refrescar", "kind": "dependency", "label": "procesa cola" },
+    { "id": "rel3", "from": "pkgln_directorio", "to": "pkgca_bitmap", "kind": "dependency", "label": "actualiza slots" },
+    { "id": "rel4", "from": "pkgln_directorio", "to": "pkgcn_directorio", "kind": "dependency", "label": "consulta directorio" }
+  ]
+}
+

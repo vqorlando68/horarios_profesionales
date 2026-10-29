@@ -1,0 +1,185 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Flujo de Gestión de Horarios y Sincronización de Agenda (PKGLN_HORARIOS)",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": "horario-profesionales/.archify/workflow-flujos-sincronizacion-agenda-20261029-163500/flujos-sincronizacion-agenda.html",
+    "repository": {
+      "url": "https://github.com/vqorlando68/horarios_profesionales.git",
+      "revision": "bb4180034ddc68f50feef4274b6a278db06390d4"
+    }
+  },
+  "lanes": [
+    { "id": "disparadores", "label": "API Next.js y Scheduler" },
+    { "id": "orquestador", "label": "Orquestador (PKGLN_HORARIOS)" },
+    { "id": "acceso_datos", "label": "Capas DAO / PKGCA_ / PKGCN_" },
+    { "id": "excepciones", "label": "Control de Cola y Errores", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "entrada", "label": "Disparo / Cola", "fromCol": 0, "toCol": 1 },
+    { "id": "orquestacion", "label": "Cálculo de Agenda", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "persistencia", "label": "Sincronización Bitmap", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "ciclo_cola", "label": "Procesamiento Cola (cada 20s)", "lane": "orquestador", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "cierre_cola", "label": "Depuración o Traza de Error", "lane": "excepciones", "fromCol": 4, "toCol": 5, "variant": "security" }
+  ],
+  "mainPath": [
+    "job_scheduler",
+    "actualizar_agenda",
+    "sincronizar_agenda",
+    "consultar_citas",
+    "merge_bitmap",
+    "eliminar_cola"
+  ],
+  "nodes": [
+    {
+      "id": "job_scheduler",
+      "lane": "disparadores",
+      "col": 0,
+      "type": "messagebus",
+      "label": "Job Refrescar Agenda",
+      "sublabel": "cada 20 segundos",
+      "tag": "DBMS_SCHEDULER",
+      "sources": [
+        { "path": "database/job_refrescar_agenda.sql", "line": 21, "end_line": 44 }
+      ]
+    },
+    {
+      "id": "api_horarios",
+      "lane": "disparadores",
+      "col": 1,
+      "type": "frontend",
+      "label": "POST /api/horarios",
+      "sublabel": "guardar horarios",
+      "sources": [
+        { "path": "app/api/horarios/route.ts", "line": 6, "end_line": 47 }
+      ]
+    },
+    {
+      "id": "grabar_horario",
+      "lane": "disparadores",
+      "col": 2,
+      "type": "backend",
+      "label": "p_grabar_horario",
+      "sublabel": "valida y guarda",
+      "sources": [
+        { "path": "database/pkgln_horarios.pkb", "line": 253, "end_line": 506 }
+      ]
+    },
+    {
+      "id": "actualizar_agenda",
+      "lane": "orquestador",
+      "col": 1,
+      "type": "backend",
+      "label": "p_actualizar_agenda",
+      "sublabel": "recorre cola",
+      "sources": [
+        { "path": "database/pkgln_horarios.pkb", "line": 1537, "end_line": 1571 }
+      ]
+    },
+    {
+      "id": "sincronizar_agenda",
+      "lane": "orquestador",
+      "col": 2,
+      "type": "backend",
+      "label": "p_sincronizar_agenda",
+      "sublabel": "POR_DIA > PERS > BASE",
+      "tag": "jerarquia + bitmaps",
+      "sources": [
+        { "path": "database/pkgln_horarios.pkb", "line": 1126, "end_line": 1465 }
+      ]
+    },
+    {
+      "id": "cola_dao",
+      "lane": "acceso_datos",
+      "col": 1,
+      "type": "database",
+      "label": "tkr_refrescar_agenda",
+      "sublabel": "p_consultar_registros",
+      "sources": [
+        { "path": "database/tkr_refrescar_agenda.sql", "line": 7, "end_line": 15 },
+        { "path": "database/pkgtkr_refrescar_agenda_dao.pkb", "line": 35, "end_line": 42 }
+      ]
+    },
+    {
+      "id": "consultar_citas",
+      "lane": "acceso_datos",
+      "col": 3,
+      "type": "database",
+      "label": "Consultar Citas",
+      "sublabel": "tkr_citas (2, 3)",
+      "tag": "id_profesional",
+      "sources": [
+        { "path": "database/pkgcn_horarios.pkb", "line": 416, "end_line": 439 }
+      ]
+    },
+    {
+      "id": "merge_bitmap",
+      "lane": "acceso_datos",
+      "col": 4,
+      "type": "database",
+      "label": "Sincronizar Slots",
+      "sublabel": "MERGE bitmap 288",
+      "tag": "tkr_disponibilidad_bitmap",
+      "sources": [
+        { "path": "database/pkgcn_horarios.pkb", "line": 442, "end_line": 498 }
+      ]
+    },
+    {
+      "id": "eliminar_cola",
+      "lane": "excepciones",
+      "col": 4,
+      "type": "security",
+      "label": "p_eliminar (OK)",
+      "sublabel": "codigo = 0",
+      "sources": [
+        { "path": "database/pkgln_horarios.pkb", "line": 1560, "end_line": 1563 },
+        { "path": "database/pkgtkr_refrescar_agenda_dao.pkb", "line": 54, "end_line": 60 }
+      ]
+    },
+    {
+      "id": "registrar_error",
+      "lane": "excepciones",
+      "col": 5,
+      "type": "security",
+      "label": "p_actualizar (Error)",
+      "sublabel": "guarda comentarios",
+      "sources": [
+        { "path": "database/pkgln_horarios.pkb", "line": 1563, "end_line": 1566 },
+        { "path": "database/pkgtkr_refrescar_agenda_dao.pkb", "line": 156, "end_line": 162 }
+      ]
+    }
+  ],
+  "edges": [
+    { "id": "api_to_grabar", "from": "api_horarios", "to": "grabar_horario", "label": "JSON horarios", "variant": "default" },
+    { "id": "grabar_to_sinc", "from": "grabar_horario", "to": "sincronizar_agenda", "label": "rango vigencia", "variant": "default" },
+    { "id": "job_to_actualizar", "from": "job_scheduler", "to": "actualizar_agenda", "variant": "emphasis" },
+    { "id": "leer_cola", "from": "cola_dao", "to": "actualizar_agenda", "label": "pendientes", "variant": "dashed" },
+    { "id": "actualizar_to_sinc", "from": "actualizar_agenda", "to": "sincronizar_agenda", "label": "id_profesional + fecha", "variant": "emphasis" },
+    { "id": "sinc_to_citas", "from": "sincronizar_agenda", "to": "consultar_citas", "label": "citas activas", "variant": "emphasis" },
+    { "id": "citas_to_merge", "from": "consultar_citas", "to": "merge_bitmap", "label": "ocupados + libres", "variant": "emphasis" },
+    { "id": "merge_to_ok", "from": "merge_bitmap", "to": "eliminar_cola", "label": "codigo = 0", "variant": "emphasis" },
+    { "id": "merge_to_err", "from": "merge_bitmap", "to": "registrar_error", "label": "fallo", "variant": "security", "role": "error" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Doble Vía de Sincronización",
+      "items": [
+        "1. Directa: p_grabar_horario sincroniza desde f_fecha_actual hasta fecha_final o +60 días.",
+        "2. Asíncrona: Cambios en citas insertan en tkr_refrescar_agenda y JOB_TKR_REFRESCAR_AGENDA refresca solo el día afectado."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Cálculo del Vector Bitmap (288 bloques de 5 min)",
+      "items": [
+        "Cruza horarios vigentes (POR_DIA > PERSONALIZADO > BASE), ausencias y festivos con tkr_citas (id_estado_cita IN (2, 3)).",
+        "Actualiza bitmap_ocupado, bitmap_disponible y slots_disponibles en tkr_disponibilidad_bitmap mediante MERGE."
+      ]
+    }
+  ]
+}

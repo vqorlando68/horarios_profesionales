@@ -1,0 +1,1611 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "startedAt": "2026-10-29T21:40:48.267Z",
+  "specification": {
+    "path": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\candidate.json",
+    "sha256": "d6bdf3c563d27e1ddae42a7cc6cd44802be2441d5403e0a261f606a2c2f730ff",
+    "bytes": 6942
+  },
+  "artifact": {
+    "path": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+    "sha256": "9b119550d2d7abca6502c71b9a75896fe8fe5f0d53355ea60a4c2cf928de5a68",
+    "bytes": 855945
+  },
+  "stages": {
+    "validate": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": null,
+      "execution": "embedded-in-deliver",
+      "command": [
+        "C:\\programas\\nodejs\\node.exe",
+        "C:\\Repositorios\\CORE_TEKER - copia\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "workflow",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\candidate.json",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "validate",
+        "specification": {
+          "sha256": "d6bdf3c563d27e1ddae42a7cc6cd44802be2441d5403e0a261f606a2c2f730ff",
+          "bytes": 6942
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    },
+    "deliver": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 3009,
+      "command": [
+        "C:\\programas\\nodejs\\node.exe",
+        "C:\\Repositorios\\CORE_TEKER - copia\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "deliver",
+        "workflow",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\candidate.json",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+        "--quality",
+        "showcase",
+        "--repo-root",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales",
+        "--json"
+      ],
+      "receipt": {
+        "schemaVersion": 1,
+        "receiptId": "53968ce1-3558-40d3-8a1b-637b8f473bae",
+        "ok": true,
+        "command": "deliver",
+        "type": "workflow",
+        "input": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\candidate.json",
+        "output": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+        "specification": {
+          "sha256": "d6bdf3c563d27e1ddae42a7cc6cd44802be2441d5403e0a261f606a2c2f730ff",
+          "bytes": 6942
+        },
+        "artifact": {
+          "sha256": "9b119550d2d7abca6502c71b9a75896fe8fe5f0d53355ea60a4c2cf928de5a68",
+          "bytes": 855945
+        },
+        "validation": {
+          "checksPassed": 9,
+          "checkCount": 9,
+          "compositionProfile": "showcase",
+          "compositionStatus": "pass",
+          "errors": 0,
+          "warnings": 0
+        },
+        "evidence": {
+          "verified": true,
+          "repository": "https://github.com/vqorlando68/horarios_profesionales",
+          "revision": "bb4180034ddc68f50feef4274b6a278db06390d4",
+          "references": 13
+        },
+        "update": {
+          "status": "unavailable",
+          "installedVersion": null,
+          "availableVersion": null,
+          "releaseNotes": null,
+          "checkedAt": null,
+          "source": null,
+          "noticeRequired": false,
+          "noticeText": null,
+          "reason": "disabled"
+        }
+      }
+    },
+    "check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 528,
+      "command": [
+        "C:\\programas\\nodejs\\node.exe",
+        "C:\\Repositorios\\CORE_TEKER - copia\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "check",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+        "--require-provenance"
+      ],
+      "receipt": {
+        "ok": true,
+        "file": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+        "artifact": {
+          "sha256": "9b119550d2d7abca6502c71b9a75896fe8fe5f0d53355ea60a4c2cf928de5a68",
+          "bytes": 855945
+        },
+        "checks": [
+          {
+            "name": "single_svg",
+            "ok": true,
+            "details": [
+              "found 1 <svg> block(s)"
+            ]
+          },
+          {
+            "name": "finite_svg",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "orthogonal_arrows",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "label_route_clearance",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_crossings",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "relationship_corridors",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "container_border_runs",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "route_rhythm",
+            "ok": true,
+            "details": []
+          },
+          {
+            "name": "legend_clearance",
+            "ok": true,
+            "details": []
+          }
+        ],
+        "composition": {
+          "schemaVersion": 1,
+          "profile": "showcase",
+          "status": "pass",
+          "summary": {
+            "errors": 0,
+            "warnings": 0
+          },
+          "metrics": {
+            "properCrossings": 0,
+            "resolvedCrossovers": 0,
+            "ambiguousCorridors": 0,
+            "arrowheadCollisions": 0,
+            "containerBorderRuns": 0,
+            "labelRouteClearanceIssues": 0,
+            "labelCanvasOverflowIssues": 0,
+            "minLabelRouteClearance": 40,
+            "desktopReadabilityIssues": 0,
+            "viewportHeightIssues": 0,
+            "minProjectedNodeTextPx": 6.838235294117647,
+            "maxBends": 0,
+            "routesOverSuggestedBends": 0,
+            "maxStretch": 1,
+            "routesOverSuggestedStretch": 0,
+            "minSegmentPx": 8,
+            "minInteriorSegmentPx": null,
+            "shortSegmentCount": 3,
+            "shortEndpointSegmentCount": 3,
+            "shortInteriorSegmentCount": 0,
+            "microSegmentCount": 0
+          },
+          "suggestedLimits": {
+            "bendsPerRelationship": 2,
+            "stretch": 1.35,
+            "segmentPx": 16,
+            "microSegmentPx": 8
+          },
+          "routeReview": {
+            "crossings": [],
+            "detours": []
+          },
+          "leadingSpace": {
+            "measured": false,
+            "reviewSuggested": false
+          },
+          "desktopReadability": {
+            "budgetBasis": "legacy-930",
+            "readerContract": "declared-wide-v1",
+            "availableDiagramWidth": 930,
+            "actualBudgetPx": 930,
+            "limit": "legacy",
+            "requestedTargetPx": null,
+            "requestedTargetMet": null,
+            "hardFloorPx": 6,
+            "hardFloorMet": true,
+            "minimumOwner": {
+              "kind": "node",
+              "id": "job_scheduler"
+            },
+            "minimumSourceTextPx": 8,
+            "minimumProjectedTextPx": 6.838235294117647,
+            "semanticTextCount": 28
+          },
+          "issues": []
+        },
+        "provenance": "current",
+        "deliveryReceiptId": "53968ce1-3558-40d3-8a1b-637b8f473bae"
+      }
+    },
+    "browser-check": {
+      "status": "pass",
+      "exitCode": 0,
+      "durationMs": 5910,
+      "command": [
+        "C:\\programas\\nodejs\\node.exe",
+        "C:\\Repositorios\\CORE_TEKER - copia\\.agents\\skills\\archify\\bin\\archify.mjs",
+        "browser-check",
+        "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+        "--json",
+        "--require-provenance"
+      ],
+      "execution": "in-process",
+      "receipt": {
+        "schemaVersion": 1,
+        "ok": true,
+        "command": "browser-check",
+        "evidenceKind": "automated-browser",
+        "status": "pass",
+        "visualReview": "not-requested",
+        "provenance": "current",
+        "deliveryReceiptId": "53968ce1-3558-40d3-8a1b-637b8f473bae",
+        "artifact": {
+          "path": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.html",
+          "sha256": "9b119550d2d7abca6502c71b9a75896fe8fe5f0d53355ea60a4c2cf928de5a68",
+          "bytes": 855945
+        },
+        "state": {
+          "detail": "read",
+          "motion": "still"
+        },
+        "chrome": {
+          "status": "available",
+          "executable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        },
+        "diagnostics": [],
+        "containment": {
+          "status": "pass",
+          "policy": "fit-or-reader-declared-readable-vertical-scroll",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1223,
+              "diagramWidth": 1193,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 68,
+                "diagramChromePx": 78,
+                "svgPx": 730,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 123,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 43,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 116,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 37,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 116,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 37,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 116,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 57,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 13
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1278,
+              "diagramWidth": 1248,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 76,
+                "diagramChromePx": 84,
+                "svgPx": 764,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 128,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 45,
+                  "spaceBelowNodesPx": 6
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 122,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 122,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 122,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 60,
+                  "spaceAboveNodesPx": 48,
+                  "spaceBelowNodesPx": 14
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1435,
+              "diagramWidth": 1405,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 860,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 145,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 50,
+                  "spaceBelowNodesPx": 6
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 137,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 137,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 137,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 67,
+                  "spaceAboveNodesPx": 54,
+                  "spaceBelowNodesPx": 15
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1818,
+              "diagramWidth": 1768,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 68,
+                "diagramChromePx": 94,
+                "svgPx": 1082,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 182,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 63,
+                  "spaceBelowNodesPx": 8
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 172,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 55,
+                  "spaceBelowNodesPx": 7
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 172,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 55,
+                  "spaceBelowNodesPx": 7
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 172,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 85,
+                  "spaceAboveNodesPx": 68,
+                  "spaceBelowNodesPx": 20
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "themeStates": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "light",
+              "resolvedTheme": "light",
+              "ok": true
+            },
+            {
+              "width": 1440,
+              "height": 900,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "requestedTheme": "dark",
+              "resolvedTheme": "dark",
+              "ok": true
+            }
+          ]
+        },
+        "readability": {
+          "status": "pass",
+          "minimumProjectedNodeTextPx": 6,
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1223,
+              "diagramWidth": 1193,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 68,
+                "diagramChromePx": 78,
+                "svgPx": 730,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 123,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 43,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 116,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 37,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 116,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 37,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 116,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 57,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 13
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1278,
+              "diagramWidth": 1248,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 76,
+                "diagramChromePx": 84,
+                "svgPx": 764,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 128,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 45,
+                  "spaceBelowNodesPx": 6
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 122,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 122,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 122,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 60,
+                  "spaceAboveNodesPx": 48,
+                  "spaceBelowNodesPx": 14
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1435,
+              "diagramWidth": 1405,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 860,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 145,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 50,
+                  "spaceBelowNodesPx": 6
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 137,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 137,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 137,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 67,
+                  "spaceAboveNodesPx": 54,
+                  "spaceBelowNodesPx": 15
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1818,
+              "diagramWidth": 1768,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 68,
+                "diagramChromePx": 94,
+                "svgPx": 1082,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 182,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 63,
+                  "spaceBelowNodesPx": 8
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 172,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 55,
+                  "spaceBelowNodesPx": 7
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 172,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 55,
+                  "spaceBelowNodesPx": 7
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 172,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 85,
+                  "spaceAboveNodesPx": 68,
+                  "spaceBelowNodesPx": 20
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "viewerChrome": {
+          "status": "pass",
+          "viewports": [
+            {
+              "width": 1440,
+              "height": 900,
+              "theme": "light",
+              "innerWidth": 1440,
+              "innerHeight": 900,
+              "scrollWidth": 1440,
+              "scrollHeight": 900,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1223,
+              "diagramWidth": 1193,
+              "pageComposition": {
+                "bodyPaddingPx": 12,
+                "headerPx": 68,
+                "diagramChromePx": 78,
+                "svgPx": 730,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 123,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 43,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 116,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 37,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 116,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 75,
+                  "spaceAboveNodesPx": 37,
+                  "spaceBelowNodesPx": 4
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 116,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 57,
+                  "spaceAboveNodesPx": 46,
+                  "spaceBelowNodesPx": 13
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1600,
+              "height": 1000,
+              "theme": "light",
+              "innerWidth": 1600,
+              "innerHeight": 1000,
+              "scrollWidth": 1600,
+              "scrollHeight": 1000,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1278,
+              "diagramWidth": 1248,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 76,
+                "diagramChromePx": 84,
+                "svgPx": 764,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 128,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 45,
+                  "spaceBelowNodesPx": 6
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 122,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 122,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 78,
+                  "spaceAboveNodesPx": 39,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 122,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 60,
+                  "spaceAboveNodesPx": 48,
+                  "spaceBelowNodesPx": 14
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 1920,
+              "height": 1080,
+              "theme": "light",
+              "innerWidth": 1920,
+              "innerHeight": 1080,
+              "scrollWidth": 1920,
+              "scrollHeight": 1080,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1435,
+              "diagramWidth": 1405,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 60,
+                "diagramChromePx": 84,
+                "svgPx": 860,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 145,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 50,
+                  "spaceBelowNodesPx": 6
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 137,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 137,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 88,
+                  "spaceAboveNodesPx": 44,
+                  "spaceBelowNodesPx": 5
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 137,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 67,
+                  "spaceAboveNodesPx": 54,
+                  "spaceBelowNodesPx": 15
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 54,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            },
+            {
+              "width": 2048,
+              "height": 1320,
+              "theme": "light",
+              "innerWidth": 2048,
+              "innerHeight": 1320,
+              "scrollWidth": 2048,
+              "scrollHeight": 1320,
+              "overflowX": false,
+              "overflowY": false,
+              "verticalScrollAccepted": false,
+              "overflowDisposition": "contained",
+              "readerLayout": "adaptive",
+              "readerOverflow": null,
+              "readerFit": null,
+              "ok": true,
+              "readerWidth": 1818,
+              "diagramWidth": 1768,
+              "pageComposition": {
+                "bodyPaddingPx": 64,
+                "headerPx": 68,
+                "diagramChromePx": 94,
+                "svgPx": 1082,
+                "cardsPx": 0,
+                "viewBoxHeight": 666
+              },
+              "viewBoxWidth": 1088,
+              "workflowLanes": [
+                {
+                  "frameId": "lane-1",
+                  "heightPx": 182,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "actualizar_agenda",
+                    "sincronizar_agenda"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 63,
+                  "spaceBelowNodesPx": 8
+                },
+                {
+                  "frameId": "lane-0",
+                  "heightPx": 172,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "job_scheduler",
+                    "api_horarios",
+                    "grabar_horario"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 55,
+                  "spaceBelowNodesPx": 7
+                },
+                {
+                  "frameId": "lane-2",
+                  "heightPx": 172,
+                  "nodeCount": 3,
+                  "nodeIds": [
+                    "cola_dao",
+                    "consultar_citas",
+                    "merge_bitmap"
+                  ],
+                  "nodeSpanPx": 111,
+                  "spaceAboveNodesPx": 55,
+                  "spaceBelowNodesPx": 7
+                },
+                {
+                  "frameId": "lane-3",
+                  "heightPx": 172,
+                  "nodeCount": 2,
+                  "nodeIds": [
+                    "eliminar_cola",
+                    "registrar_error"
+                  ],
+                  "nodeSpanPx": 85,
+                  "spaceAboveNodesPx": 68,
+                  "spaceBelowNodesPx": 20
+                }
+              ],
+              "minimumProjectedNodeTextPx": 8,
+              "minimumProjectedNonEdgeTextPx": 8,
+              "minimumProjectedEdgeTextPx": 8,
+              "minimumProjectedNodeText": "cada 20 segundos",
+              "minimumProjectedNodeTextDetail": "context",
+              "minimumProjectedNodeTextOwner": {
+                "kind": "node",
+                "id": "job_scheduler"
+              },
+              "minimumRequiredNodeTextPx": 6,
+              "readabilityOk": true,
+              "hasLegend": true,
+              "hasNavigationDock": true,
+              "legendDockIntersectionArea": 0,
+              "dockStageIntersectionArea": 0,
+              "dockStageGap": 10,
+              "requiredDockStageGap": 10,
+              "viewerChromeStageOk": true,
+              "viewerChromeReserve": 44,
+              "viewerChromeActive": true,
+              "viewerChromeOk": true,
+              "resolvedTheme": "light"
+            }
+          ]
+        },
+        "captures": {
+          "status": "not-requested",
+          "screenshots": [],
+          "contactSheet": null
+        },
+        "sidecars": {
+          "receipt": "flujos-sincronizacion-agenda.browser-check.json",
+          "files": []
+        }
+      }
+    }
+  },
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "diagnostics": [],
+  "evidence": {
+    "receipt": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.finalize.json",
+    "summaryReceipt": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.finalize-summary.json",
+    "browserCheckReceipt": "C:\\Repositorios\\CORE_TEKER - copia\\horario-profesionales\\.archify\\workflow-flujos-sincronizacion-agenda-20261029-163500\\flujos-sincronizacion-agenda.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "finishedAt": "2026-10-29T21:40:59.556Z",
+  "durationMs": 11288,
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-29T21:36:24.384Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  }
+}

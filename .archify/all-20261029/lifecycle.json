@@ -1,0 +1,34 @@
+{
+  "schema_version": 3,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Ciclo de Vida del Refresco de Agenda (tkr_refrescar_agenda y tkr_citas)",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/lifecycle.html",
+    "quality_profile": "showcase"
+  },
+  "mainPath": ["evento_cita", "encolado", "procesando_job", "sincronizado", "depurado"],
+  "states": [
+    { "id": "evento_cita", "type": "start", "label": "Cambio en Cita", "sublabel": "estado 2/3 o fecha", "tag": "trigger", "step": "01" },
+    { "id": "encolado", "type": "waiting", "label": "En Cola", "sublabel": "tkr_refrescar_agenda", "tag": "pendiente", "step": "02" },
+    { "id": "procesando_job", "type": "active", "label": "Job Ejecutando", "sublabel": "p_actualizar_agenda", "tag": "cada 20s", "step": "03" },
+    { "id": "sincronizado", "type": "decision", "label": "Sincronizando", "sublabel": "p_sincronizar_agenda", "tag": "evalúa codigo", "step": "04" },
+    { "id": "depurado", "type": "success", "label": "Cola Depurada", "sublabel": "p_eliminar(id)", "tag": "codigo = 0", "step": "05" },
+    { "id": "con_error", "type": "failure", "label": "Error Registrado", "sublabel": "guarda comentarios", "tag": "codigo != 0" },
+    { "id": "reintento", "type": "waiting", "label": "Pendiente Reintento", "sublabel": "siguiente ciclo job", "tag": "20 seg" }
+  ],
+  "transitions": [
+    { "id": "t1", "from": "evento_cita", "to": "encolado", "label": "p_insertar" },
+    { "id": "t2", "from": "encolado", "to": "procesando_job", "label": "job 20s" },
+    { "id": "t3", "from": "procesando_job", "to": "sincronizado", "label": "invoca PKGLN" },
+    { "id": "t4", "from": "sincronizado", "to": "depurado", "label": "codigo = 0", "variant": "emphasis" },
+    { "id": "t5", "from": "sincronizado", "to": "con_error", "label": "codigo != 0", "variant": "security" },
+    { "id": "t6", "from": "con_error", "to": "reintento", "label": "p_actualizar", "variant": "dashed" },
+    { "id": "t7", "from": "reintento", "to": "procesando_job", "label": "nuevo ciclo" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Procesamiento Atómico por Registro", "items": ["Cada fila de tkr_refrescar_agenda confirma con COMMIT individual", "Si codigo = 0 se elimina inmediatamente de la cola"] },
+    { "dot": "rose", "title": "Trazabilidad de Fallos", "items": ["Si codigo != 0 se persiste el JSON de salida en la columna comentarios (hasta 4000 chars)"] }
+  ]
+}
+

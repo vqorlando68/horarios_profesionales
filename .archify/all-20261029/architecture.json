@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura Ecosistema CORE TEKER: Horarios y Directorio de Profesionales",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/architecture.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "ui_horarios", "type": "frontend", "label": "App Horarios", "sublabel": "Next.js :3000", "pos": [40, 80], "size": [140, 62] },
+    { "id": "ui_directorio", "type": "frontend", "label": "App Directorio", "sublabel": "Next.js :3001", "pos": [40, 260], "size": [140, 62] },
+    { "id": "scheduler", "type": "messagebus", "label": "DBMS_SCHEDULER", "sublabel": "cada 20 seg", "pos": [40, 430], "size": [140, 62], "tag": "JOB_TKR_REFRESCAR" },
+    { "id": "pkgln_hor", "type": "backend", "label": "PKGLN_HORARIOS", "sublabel": "Orquestador Horarios", "pos": [330, 80], "size": [160, 64] },
+    { "id": "pkgln_dir", "type": "backend", "label": "PKGLN_DIRECTORIO", "sublabel": "Orquestador Directorio", "pos": [330, 260], "size": [160, 64] },
+    { "id": "cola_refresco", "type": "database", "label": "tkr_refrescar_agenda", "sublabel": "Cola DAO", "pos": [330, 430], "size": [160, 62] },
+    { "id": "pkgcn_hor", "type": "backend", "label": "PKGCN_HORARIOS", "sublabel": "Consultas y MERGE", "pos": [640, 80], "size": [160, 64] },
+    { "id": "pkgca_bitmap", "type": "backend", "label": "PKGCA_BITMAP", "sublabel": "Acceso Mono-Tabla", "pos": [640, 260], "size": [160, 64] },
+    { "id": "tablas_agenda", "type": "database", "label": "Horarios y Citas", "sublabel": "tkr_horarios / tkr_citas", "pos": [940, 80], "size": [160, 64] },
+    { "id": "tabla_bitmap", "type": "database", "label": "tkr_disponibilidad_bitmap", "sublabel": "Vector 288 bits", "pos": [940, 260], "size": [160, 64], "tag": "5 min / bit" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Oracle Database (5 Capas PL/SQL)", "wraps": ["pkgln_hor", "pkgln_dir", "cola_refresco", "pkgcn_hor", "pkgca_bitmap", "tablas_agenda", "tabla_bitmap"] }
+  ],
+  "connections": [
+    { "id": "c1", "from": "ui_horarios", "to": "pkgln_hor", "label": "JSON CLOB", "variant": "emphasis" },
+    { "id": "c2", "from": "ui_directorio", "to": "pkgln_dir", "label": "JSON CLOB", "variant": "emphasis" },
+    { "id": "c3", "from": "scheduler", "to": "cola_refresco", "label": "lee cola", "variant": "dashed" },
+    { "id": "c4", "from": "cola_refresco", "to": "pkgln_hor", "label": "p_actualizar_agenda", "variant": "emphasis", "fromSide": "top", "toSide": "bottom" },
+    { "id": "c5", "from": "pkgln_hor", "to": "pkgcn_hor", "label": "p_sincronizar_agenda", "variant": "emphasis" },
+    { "id": "c6", "from": "pkgcn_hor", "to": "tablas_agenda", "label": "citas (2,3)", "variant": "default" },
+    { "id": "c7", "from": "pkgcn_hor", "to": "tabla_bitmap", "label": "MERGE 288 bits", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
+    { "id": "c8", "from": "pkgln_dir", "to": "pkgca_bitmap", "label": "lee / marca bits", "variant": "emphasis" },
+    { "id": "c9", "from": "pkgca_bitmap", "to": "tabla_bitmap", "label": "SELECT / UPDATE", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Estándar 5 Capas PL/SQL", "items": ["Orquestación exclusiva en PKGLN_", "Acceso multi-tabla en PKGCN_ y mono-tabla en PKGCA_ / _DAO"] },
+    { "dot": "emerald", "title": "Sincronización de Slots", "items": ["Vector binario de 288 posiciones (5 min por bit)", "Cola asíncrona tkr_refrescar_agenda procesada cada 20s"] }
+  ]
+}
+

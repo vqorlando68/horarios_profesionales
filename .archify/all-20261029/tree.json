@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "diagram_type": "tree",
+  "meta": {
+    "title": "Descomposición Jerárquica del Ecosistema CORE TEKER",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/tree.html",
+    "quality_profile": "showcase"
+  },
+  "nodes": [
+    { "id": "core", "label": "CORE TEKER", "sublabel": "Plataforma de Agendamiento" },
+    { "id": "mod_horarios", "label": "horario-profesionales", "parent": "core", "sublabel": "Puerto :3000" },
+    { "id": "mod_directorio", "label": "directorio-profesionales", "parent": "core", "sublabel": "Puerto :3001" },
+    { "id": "mod_db", "label": "Arquitectura PL/SQL 5 Capas", "parent": "core", "sublabel": "Oracle Database" },
+    { "id": "hor_vigencias", "label": "Gestión de Vigencias", "parent": "mod_horarios", "sublabel": "BASE / PERS / POR_DIA" },
+    { "id": "hor_ausencias", "label": "Ausencias y Festivos", "parent": "mod_horarios", "sublabel": "Bloqueos programados" },
+    { "id": "hor_cola", "label": "Cola Refresco (Job 20s)", "parent": "mod_horarios", "sublabel": "tkr_refrescar_agenda" },
+    { "id": "dir_busqueda", "label": "Búsqueda Paginada", "parent": "mod_directorio", "sublabel": "Filtros multicriterio" },
+    { "id": "dir_slots", "label": "Motor de Intervalos", "parent": "mod_directorio", "sublabel": "Cruce con 288 bits" },
+    { "id": "capa_ln", "label": "Capa PKGLN_", "parent": "mod_db", "sublabel": "Orquestación y COMMIT" },
+    { "id": "capa_cn", "label": "Capa PKGCN_", "parent": "mod_db", "sublabel": "1 SQL/DML Multi-Tabla" },
+    { "id": "capa_ca_dao", "label": "Capas PKGCA_ y _DAO", "parent": "mod_db", "sublabel": "Acceso Mono-Tabla" }
+  ]
+}
+

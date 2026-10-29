@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "diagram_type": "timeline",
+  "meta": {
+    "title": "Línea de Tiempo: Reserva de Cita y Sincronización por Job (Caso Cita 737)",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/timeline.html",
+    "evidence": "illustrative",
+    "timezone": "America/Bogota",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "citas", "label": "Módulo de Citas (tkr_citas)" },
+    { "id": "scheduler", "label": "Scheduler & PKGLN_HORARIOS" },
+    { "id": "directorio", "label": "Directorio Profesionales UI" }
+  ],
+  "events": [
+    { "id": "ev1", "at": "2026-10-29T16:00:00-05:00", "title": "Cita 737 en estado 2", "detail": "Profesional id=6 tiene cita reservada el 2026-10-30 de 10:00 a 10:20.", "lane": "citas", "kind": "change" },
+    { "id": "ev2", "at": "2026-10-29T16:00:03-05:00", "title": "Insert en tkr_refrescar_agenda", "detail": "Se encola id_usuario=6, fecha=2026-10-30 para refrescar su agenda.", "lane": "citas", "kind": "action" },
+    { "id": "ev3", "at": "2026-10-29T16:00:20-05:00", "title": "Disparo JOB_TKR_REFRESCAR_AGENDA", "detail": "El job ejecuta PKGLN_HORARIOS.p_actualizar_agenda al cumplirse los 20s.", "lane": "scheduler", "kind": "action" },
+    { "id": "ev4", "at": "2026-10-29T16:00:21-05:00", "title": "MERGE tkr_disponibilidad_bitmap", "detail": "Marca en '1' los bits 121..124 (10:00-10:20) y actualiza slots_disponibles a 11.", "lane": "scheduler", "kind": "recovery" },
+    { "id": "ev5", "at": "2026-10-29T16:00:22-05:00", "title": "Eliminación de cola + COMMIT", "detail": "Con codigo=0 se depura el registro de tkr_refrescar_agenda.", "lane": "scheduler", "kind": "change" },
+    { "id": "ev6", "at": "2026-10-29T16:00:25-05:00", "title": "Reflejo en pantalla (11 turnos)", "detail": "El modal de Carolina Avila muestra 11 turnos disponibles (sin las 10:00).", "lane": "directorio", "kind": "recovery" }
+  ]
+}
+

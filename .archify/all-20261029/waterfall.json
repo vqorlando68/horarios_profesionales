@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "diagram_type": "waterfall",
+  "meta": {
+    "title": "Cascada de Tiempos: Ejecución de PKGLN_HORARIOS.p_actualizar_agenda",
+    "locale": "es",
+    "output": "horario-profesionales/public/archify/waterfall.html",
+    "evidence": "illustrative",
+    "unit": "ms",
+    "quality_profile": "showcase"
+  },
+  "spans": [
+    { "id": "total", "name": "PKGLN_HORARIOS.p_actualizar_agenda", "service": "pkgln_horarios", "start": 0, "end": 24, "detail": "Ciclo completo para procesar una fecha pendiente de la cola." },
+    { "id": "s1", "name": "p_consultar_registros (cola)", "service": "pkgtkr_refrescar_agenda_dao", "start": 0, "duration": 2, "parent": "total" },
+    { "id": "s2", "name": "f_consultar_citas_ocupadas", "service": "pkgcn_horarios", "start": 2, "duration": 5, "parent": "total" },
+    { "id": "s3", "name": "f_consultar_vigentes_fecha", "service": "pkgca_horarios", "start": 7, "duration": 4, "parent": "total" },
+    { "id": "s4", "name": "Cálculo memoria 288 bits", "service": "pkgln_horarios", "start": 11, "duration": 3, "parent": "total" },
+    { "id": "s5", "name": "p_sincronizar_agenda_slots (MERGE)", "service": "pkgcn_horarios", "start": 14, "duration": 6, "parent": "total" },
+    { "id": "s6", "name": "p_eliminar + COMMIT", "service": "pkgtkr_refrescar_agenda_dao", "start": 20, "duration": 4, "parent": "total" }
+  ]
+}
+

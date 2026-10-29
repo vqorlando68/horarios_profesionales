@@ -52,7 +52,7 @@ AS
     );
 
     -- 6. Consultar ausencias en JSON (procedimiento de soporte y retrocompatibilidad)
-    PROCEDURE pr_consultar_ausencias_json (
+    PROCEDURE p_consultar_ausencias_json (
         p_json      IN  CLOB,
         p_resultado OUT CLOB
     );
@@ -62,6 +62,25 @@ AS
         p_id_usuario    IN NUMBER,
         p_fecha_inicial IN DATE,
         p_fecha_final   IN DATE
+    );
+
+    -- 8. Consultar citas ocupadas de un profesional en un rango de fechas (id_estado_cita IN (2,3))
+    FUNCTION f_consultar_citas_ocupadas (
+        p_id_usuario    IN NUMBER,
+        p_fecha_inicial IN DATE,
+        p_fecha_final   IN DATE
+    ) RETURN SYS_REFCURSOR;
+
+    -- 9. Persistir en una única instrucción DML el bitmap y slots sincronizados del día
+    PROCEDURE p_sincronizar_agenda_slots (
+        p_id_usuario            IN NUMBER,
+        p_fecha                 IN DATE,
+        p_id_convenio           IN NUMBER,
+        p_id_tipo_aseguramiento IN NUMBER,
+        p_modalidad             IN VARCHAR2,
+        p_bitmap_disponible     IN VARCHAR2,
+        p_bitmap_ocupado        IN VARCHAR2,
+        p_slots_disponibles     IN NUMBER
     );
 
 END PKGCN_HORARIOS;

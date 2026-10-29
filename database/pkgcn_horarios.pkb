@@ -319,7 +319,7 @@ AS
     END p_consultar_agenda_profesional_json;
 
     -- 6. Consultar ausencias en JSON (soporte y retrocompatibilidad)
-    PROCEDURE pr_consultar_ausencias_json (
+    PROCEDURE p_consultar_ausencias_json (
         p_json      IN  CLOB,
         p_resultado OUT CLOB
     ) IS
@@ -369,7 +369,7 @@ AS
         v_res_obj.put('mensaje', 'Ausencias consultadas exitosamente');
         v_res_obj.put('datos', v_arr);
         p_resultado := v_res_obj.to_clob();
-    END pr_consultar_ausencias_json;
+    END p_consultar_ausencias_json;
 
     -- 7. Eliminar ausencias de festivos de una vigencia personalizada si no solapa con otra vigencia personalizada
     PROCEDURE p_eliminar_ausencias_festivos_vigencia (
@@ -411,6 +411,87 @@ AS
                   AND TRUNC(a.fecha_final)   >= TRUNC(h.fecha_inicial)
            );
     END p_eliminar_ausencias_festivos_vigencia;
+
+    -- 8. Consultar citas ocupadas de un profesional en un rango de fechas (id_estado_cita IN (2,3))
+    FUNCTION f_consultar_citas_ocupadas (
+        p_id_usuario    IN NUMBER,
+        p_fecha_inicial IN DATE,
+        p_fecha_final   IN DATE
+    ) RETURN SYS_REFCURSOR IS
+        v_cursor SYS_REFCURSOR;
+    BEGIN
+        OPEN v_cursor FOR
+            SELECT ct.id,
+                   ct.fecha_inicio_cita,
+                   ct.fecha_final_cita
+              FROM tkr_citas         ct,
+                   tkr_cita_usuarios cu
+             WHERE ct.id                 = cu.id_cita
+               AND cu.id_usuario_atiende = p_id_usuario
+               AND ct.id_estado_cita    IN (2, 3)
+               AND ct.fecha_inicio_cita <= (TRUNC(p_fecha_final) + 1 - (1 / 86400))
+               AND NVL(ct.fecha_final_cita, ct.fecha_inicio_cita) >= TRUNC(p_fecha_inicial);
+        RETURN v_cursor;
+    END f_consultar_citas_ocupadas;
+
+    -- 9. Persistir en una única instrucción DML el bitmap y slots sincronizados del día
+    PROCEDURE p_sincronizar_agenda_slots (
+        p_id_usuario            IN NUMBER,
+        p_fecha                 IN DATE,
+        p_id_convenio           IN NUMBER,
+        p_id_tipo_aseguramiento IN NUMBER,
+        p_modalidad             IN VARCHAR2,
+        p_bitmap_disponible     IN VARCHAR2,
+        p_bitmap_ocupado        IN VARCHAR2,
+        p_slots_disponibles     IN NUMBER
+    ) IS
+    BEGIN
+        MERGE INTO tkr_disponibilidad_bitmap dest
+        USING (
+            SELECT p_id_usuario                    AS id_usuario,
+                   TRUNC(p_fecha)                  AS fecha,
+                   p_id_convenio                   AS id_convenio,
+                   NVL(p_id_tipo_aseguramiento, 1) AS id_tipo_aseguramiento,
+                   NVL(p_modalidad, 'V')           AS modalidad,
+                   p_bitmap_disponible             AS bitmap_disponible,
+                   p_bitmap_ocupado                AS bitmap_ocupado,
+                   NVL(p_slots_disponibles, 0)     AS slots_disponibles
+              FROM DUAL
+        ) src
+           ON (    dest.id_usuario            = src.id_usuario
+               AND TRUNC(dest.fecha)          = src.fecha
+               AND NVL(dest.id_convenio, -1)  = NVL(src.id_convenio, -1)
+               AND dest.id_tipo_aseguramiento = src.id_tipo_aseguramiento
+               AND dest.modalidad             = src.modalidad )
+         WHEN MATCHED THEN
+            UPDATE SET
+                dest.bitmap_disponible   = src.bitmap_disponible,
+                dest.bitmap_ocupado      = src.bitmap_ocupado,
+                dest.slots_disponibles   = src.slots_disponibles,
+                dest.fecha_actualizacion = SYSTIMESTAMP AT TIME ZONE 'America/Bogota'
+         WHEN NOT MATCHED THEN
+            INSERT (
+                id_usuario,
+                fecha,
+                id_convenio,
+                id_tipo_aseguramiento,
+                modalidad,
+                bitmap_disponible,
+                bitmap_ocupado,
+                slots_disponibles,
+                fecha_actualizacion
+            ) VALUES (
+                src.id_usuario,
+                src.fecha,
+                src.id_convenio,
+                src.id_tipo_aseguramiento,
+                src.modalidad,
+                src.bitmap_disponible,
+                src.bitmap_ocupado,
+                src.slots_disponibles,
+                SYSTIMESTAMP AT TIME ZONE 'America/Bogota'
+            );
+    END p_sincronizar_agenda_slots;
 
 END PKGCN_HORARIOS;
 /

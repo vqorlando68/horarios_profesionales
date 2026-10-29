@@ -147,25 +147,69 @@ AS
         p_json_salida  OUT CLOB
     );
 
+    /**
+     * =========================================================================
+     * Objeto      : p_sincornizar_agenda
+     * Propósito   : Sincroniza los slots y bitmaps de disponibilidad del profesional
+     *               (tkr_disponibilidad_bitmap) a partir de los horarios vigentes,
+     *               marcando como ocupados los slots comprendidos entre
+     *               fecha_inicio_cita y fecha_final_cita en tkr_citas para
+     *               id_estado_cita IN (2, 3).
+     *
+     * Estructura JSON Entrada (Schema):
+     *   {
+     *     "id_usuario": NUMBER (Obligatorio si no se envía id_profesional),
+     *     "id_profesional": NUMBER (Opcional, alias de id_usuario),
+     *     "fecha": VARCHAR2 (Opcional, YYYY-MM-DD para sincronizar un día específico),
+     *     "fecha_inicial": VARCHAR2 (Opcional, YYYY-MM-DD),
+     *     "fecha_final": VARCHAR2 (Opcional, YYYY-MM-DD)
+     *   }
+     *
+     * Estructura JSON Salida (Schema):
+     *   {
+     *     "codigo": NUMBER (0 = Éxito, < 0 = Error),
+     *     "mensaje": VARCHAR2,
+     *     "id_usuario": NUMBER,
+     *     "dias_sincronizados": NUMBER,
+     *     "citas_ocupadas": NUMBER
+     *   }
+     *
+     * Historial de Modificaciones:
+     *   -----------------------------------------------------------------------
+     *   FECHA       | AUTOR                  | DESCRIPCIÓN DEL CAMBIO
+     *   -----------------------------------------------------------------------
+     *   2026-10-29  | Orlando Valverde       | Creación de sincronización de slots con tkr_citas (estados 2,3).
+     * =========================================================================
+     */
+    PROCEDURE p_sincornizar_agenda (
+        p_json_entrada IN  CLOB,
+        p_json_salida  OUT CLOB
+    );
+
+    PROCEDURE p_sincornizar_agenda (
+        p_id_profesional IN NUMBER,
+        p_fecha          IN DATE DEFAULT NULL
+    );
+
+    PROCEDURE p_sincronizar_agenda (
+        p_json_entrada IN  CLOB,
+        p_json_salida  OUT CLOB
+    );
+
+    PROCEDURE p_sincronizar_agenda (
+        p_id_profesional IN NUMBER,
+        p_fecha          IN DATE DEFAULT NULL
+    );
+
     -- =========================================================================
-    -- ALIAS PARA COMPATIBILIDAD CONTRATOS PREVIOS (pr_*)
+    -- ALIAS PARA COMPATIBILIDAD CONTRATOS PREVIOS (p_*)
     -- =========================================================================
-    PROCEDURE pr_registrar_ausencia (
+    PROCEDURE p_actualizar_ausencia (
         p_json      IN  CLOB,
         p_resultado OUT CLOB
     );
 
-    PROCEDURE pr_actualizar_ausencia (
-        p_json      IN  CLOB,
-        p_resultado OUT CLOB
-    );
-
-    PROCEDURE pr_obtener_ausencias (
-        p_json      IN  CLOB,
-        p_resultado OUT CLOB
-    );
-
-    PROCEDURE pr_eliminar_ausencia (
+    PROCEDURE p_obtener_ausencias (
         p_json      IN  CLOB,
         p_resultado OUT CLOB
     );

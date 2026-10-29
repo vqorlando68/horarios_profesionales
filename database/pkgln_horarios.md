@@ -81,8 +81,9 @@ Configura la disponibilidad semanal de atención de un profesional de salud, sop
 - **Paso 09 [Validación de Traslapes en Base de Datos]**: Si el horario con fecha final colisiona con turnos registrados previamente para ese profesional y convenio; Salida inmediata con código -20009 por conflicto de horarios en base de datos (`PKGCN_HORARIOS.f_existe_traslape_horario`)
 - **Paso 10 [Persistencia Relacional de Turnos]**: Desestructura el arreglo mediante extracción relacional e inserta los nuevos turnos en el sistema; `PKGCN_HORARIOS.p_guardar_horarios_profesional`
 - **Paso 11 [Generación de Ausencias por Festivo - Bifurcación]**: Si la fecha festiva no se encuentra previamente cubierta en el calendario del profesional; Inserta la ausencia automática de un día y vuelve al flujo principal (`PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar`)
-- **Paso 12 [Confirmación Transaccional Atómica]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
-- **Paso 13 [Control Forense de Excepciones]**: Ante cualquier error inesperado; Revierte la transacción, registra el volcado del fallo en la bitácora de errores (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
+- **Paso 12 [Sincronización de Slots de Agenda]**: Sincroniza los slots disponibles y ocupados del horario frente a las citas en `tkr_citas` (`id_estado_cita IN (2, 3)`); `p_sincornizar_agenda`
+- **Paso 13 [Confirmación Transaccional Atómica]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
+- **Paso 14 [Control Forense de Excepciones]**: Ante cualquier error inesperado; Revierte la transacción, registra el volcado del fallo en la bitácora de errores (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
 
 ### 3. Mapa de Objetos Invocados y Llamados
 | Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
@@ -96,8 +97,9 @@ Configura la disponibilidad semanal de atención de un profesional de salud, sop
 | 7 | `PKGCN_HORARIOS.p_guardar_horarios_profesional` | `pkgcn_` | Procedimiento | Insertar masivamente turnos usando extracción relacional JSON_TABLE | En flujo principal tras validar traslapes |
 | 8 | `pkgca_tkr_ausencias_profesional.f_existe_ausencia` | `pkgca_` | Función | Verificar si la fecha festiva ya está cubierta para no duplicar | Por cada festivo no laborable |
 | 9 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar` | `DAO` | Procedimiento | Persistir ausencia automática de un día por festivo no laborable | Bifurcación: Si festivo no cubierto (vuelve al flujo) |
-| 10 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Flujo principal al completar operaciones |
-| 11 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Registrar volcado técnico de excepción en tkr_errores | Bloque WHEN OTHERS ante fallos |
+| 10 | `PKGLN_HORARIOS.p_sincornizar_agenda` | `pkgln_` | Procedimiento | Sincronizar slots y bitmaps cruzando horarios con citas en estados 2 y 3 | Tras guardar o actualizar horarios |
+| 11 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Flujo principal al completar operaciones |
+| 12 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Registrar volcado técnico de excepción en tkr_errores | Bloque WHEN OTHERS ante fallos |
 
 ```json
 // JSON ENTRADA
@@ -252,13 +254,13 @@ Consulta el catálogo de ausencias registradas pudiendo aplicar filtros opcional
 - Retorna el listado consolidado en formato JSON estructurado.
 
 ### 2. Decisiones y Bifurcaciones Lógicas
-- **Paso 01 [Consulta Multi-Tabla de Ausencias]**: Extrae los períodos de ausencia filtrados por profesional y rango enriquecidos con datos del usuario; `PKGCN_HORARIOS.pr_consultar_ausencias_json`
+- **Paso 01 [Consulta Multi-Tabla de Ausencias]**: Extrae los períodos de ausencia filtrados por profesional y rango enriquecidos con datos del usuario; `PKGCN_HORARIOS.p_consultar_ausencias_json`
 - **Paso 02 [Control Forense de Excepciones]**: Ante fallos en la consulta; Registra el incidente técnico en la bitácora de errores (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
 
 ### 3. Mapa de Objetos Invocados y Llamados
 | Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
 | :---: | :--- | :--- | :--- | :--- | :--- |
-| 1 | `PKGCN_HORARIOS.pr_consultar_ausencias_json` | `pkgcn_` | Procedimiento | Realizar consulta relacional multi-tabla y generar estructura JSON | En flujo principal |
+| 1 | `PKGCN_HORARIOS.p_consultar_ausencias_json` | `pkgcn_` | Procedimiento | Realizar consulta relacional multi-tabla y generar estructura JSON | En flujo principal |
 | 2 | `pkgcn_profesionales.f_url_foto_profesional` | `pkgcn_` | Función | Resolver URL de la imagen del profesional | Invocado internamente por consulta SQL |
 | 3 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Persistir registro técnico del error en tkr_errores | Bloque WHEN OTHERS ante fallos |
 
@@ -417,5 +419,62 @@ Actualiza la configuración de trabajo en días festivos y domingos para un usua
 {
   "codigo": 0,
   "mensaje": "Configuración de festivos actualizada exitosamente. Se eliminaron los turnos del día domingo."
+}
+```
+
+---
+
+## Método: p_sincornizar_agenda
+
+### 1. Descripción en Lenguaje Natural
+Sincroniza los slots y bitmaps de disponibilidad horaria de un profesional en `tkr_disponibilidad_bitmap` al momento de grabar o actualizar un horario:
+- Valida los parámetros de entrada (`id_usuario` o `id_profesional` obligatorio, `fecha` para un día específico o `fecha_inicial` y `fecha_final` opcionales en formato `YYYY-MM-DD`), tomando como inicio mínimo `TRUNC(f_fecha_actual)` (hora de Bogotá, Colombia).
+- Verifica y apertura telemetría institucional si se encuentra activa.
+- Delega a `PKGCN_HORARIOS.p_sincronizar_agenda_slots` el cálculo día por día de los slots disponibles según los horarios vigentes (`POR_DIA` > `PERSONALIZADO` > `BASE`), marcando como ocupados los intervalos en los que existan registros en `tkr_citas` entre `fecha_inicio_cita` y `fecha_final_cita` con `id_estado_cita IN (2, 3)`.
+- Confirma atómicamente los cambios mediante `p_do_commit`, cierra telemetría y retorna el resumen de días sincronizados y citas ocupadas.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Decisión 1 [Validación de Entrada]**: Si el payload es nulo o carece de `id_usuario`; Salida inmediata con código -20001 por parámetros obligatorios ausentes
+- **Decisión 2 [Validación de Formato de Fechas]**: Si `fecha_inicial` o `fecha_final` no cumplen el formato `YYYY-MM-DD`; Salida inmediata con código -20005 por formato de fecha inválido
+- **Decisión 3 [Evaluación de Trazabilidad]**: Si `uti_manejo_trazas_pkg.f_debe_trazar` retorna TRUE; Inicia traza en `tkr_traza_ejecucion` y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_iniciar_traza`)
+- **Paso 4 [Sincronización de Slots y Citas Ocupadas]**: Cruza horarios vigentes con `tkr_citas` (`id_estado_cita IN (2, 3)` entre `fecha_inicio_cita` y `fecha_final_cita`) y actualiza `tkr_disponibilidad_bitmap`; `PKGCN_HORARIOS.p_sincronizar_agenda_slots`
+- **Paso 5 [Confirmación Transaccional]**: Confirma los cambios de manera controlada; `p_do_commit`
+- **Decisión 6 [Cierre de Telemetría]**: Si la traza está activa; Registra fin exitoso de la ejecución y vuelve al flujo principal (`uti_manejo_trazas_pkg.p_finalizar_traza`)
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `uti_manejo_trazas_pkg.f_debe_trazar` | `uti_` | Función | Verificar si la telemetría está activa para el método | Al inicio del proceso |
+| 2 | `uti_manejo_trazas_pkg.p_iniciar_traza` | `uti_` | Procedimiento | Apertura de registro en tkr_traza_ejecucion | Si f_debe_trazar = TRUE |
+| 3 | `pkgtkr_parametros_dao.f_existe` | `DAO` | Función | Consultar en `tkr_parametros` (`id = 8`) la cantidad de días a sincronizar (`valor_parametro`, o 60 por defecto) | Cuando no se informa `fecha_final` (horario base) |
+| 4 | `pkgca_tkr_usuarios.f_trabaja_festivos` | `pkgca_` | Función | Consultar indicador trabaja_festivos del profesional | Previo a evaluar días del rango |
+| 5 | `pkgca_tkr_tiempos_atencion.f_obtener_duracion_cita` | `pkgca_` | Función | Obtener duración en minutos de la cita del profesional | Previo a calcular slots |
+| 6 | `PKGCN_HORARIOS.f_consultar_citas_ocupadas` | `pkgcn_` | Función | Consultar citas ocupadas en tkr_citas (estados 2, 3) | Previo a recorrer fechas |
+| 7 | `pkgca_tkr_festivos.f_es_festivo` | `pkgca_` | Función | Validar si la fecha es festivo nacional | Por cada día del rango |
+| 8 | `pkgca_tkr_ausencias_profesional.f_existe_ausencia` | `pkgca_` | Función | Validar si el profesional tiene ausencia en la fecha | Por cada día del rango |
+| 9 | `pkgca_tkr_horarios_profesional.f_consultar_vigentes_fecha` | `pkgca_` | Función | Obtener turnos vigentes del profesional para la fecha | Si no tiene ausencia en el día |
+| 10 | `PKGCN_HORARIOS.p_sincronizar_agenda_slots` | `pkgcn_` | Procedimiento | Persistir en un único MERGE los bitmaps y slots del día | Por cada día sincronizado |
+| 11 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Éxito sin excepciones |
+| 12 | `uti_manejo_trazas_pkg.p_finalizar_traza` | `uti_` | Procedimiento | Cerrar telemetría con estado exitoso | Antes de retornar |
+| 13 | `uti_manejo_trazas_pkg.p_finalizar_traza_error` | `uti_` | Procedimiento | Cerrar telemetría con estado ERROR | Bloque WHEN OTHERS |
+| 14 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Persistir registro forense en tkr_errores | Bloque WHEN OTHERS |
+
+```json
+// JSON ENTRADA
+{
+  "id_usuario": 47,
+  "fecha_inicial": "2026-12-01",
+  "fecha_final": "2026-12-31"
+}
+```
+
+```json
+// JSON SALIDA
+{
+  "codigo": 0,
+  "mensaje": "Agenda y slots sincronizados exitosamente.",
+  "id_usuario": 47,
+  "dias_sincronizados": 31,
+  "citas_ocupadas": 8
 }
 ```

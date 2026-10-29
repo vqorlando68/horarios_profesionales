@@ -488,6 +488,28 @@ AS
             END LOOP;
         END IF;
 
+        -- Fase 4.2: Sincronización de slots de agenda considerando citas ocupadas en tkr_citas (id_estado_cita IN (2,3))
+        DECLARE
+            v_json_sync_in  JSON_OBJECT_T := JSON_OBJECT_T();
+            v_json_sync_out CLOB;
+        BEGIN
+            v_json_sync_in.put('id_usuario', v_id_usuario);
+            IF v_tiene_orig AND v_fecha_ini_orig IS NOT NULL THEN
+                v_json_sync_in.put('fecha_inicial', TO_CHAR(LEAST(NVL(v_fecha_ini_lote, v_fecha_ini_orig), v_fecha_ini_orig), 'YYYY-MM-DD'));
+            ELSIF v_fecha_ini_lote IS NOT NULL THEN
+                v_json_sync_in.put('fecha_inicial', TO_CHAR(v_fecha_ini_lote, 'YYYY-MM-DD'));
+            END IF;
+            IF v_tiene_orig AND v_fecha_fin_orig IS NOT NULL AND v_fecha_fin_lote IS NOT NULL THEN
+                v_json_sync_in.put('fecha_final', TO_CHAR(GREATEST(v_fecha_fin_lote, v_fecha_fin_orig), 'YYYY-MM-DD'));
+            ELSIF v_fecha_fin_lote IS NOT NULL THEN
+                v_json_sync_in.put('fecha_final', TO_CHAR(v_fecha_fin_lote, 'YYYY-MM-DD'));
+            END IF;
+            p_sincornizar_agenda(
+                p_json_entrada => v_json_sync_in.to_clob(),
+                p_json_salida  => v_json_sync_out
+            );
+        END;
+
         -- Fase 5: Confirmación transaccional controlada
         p_do_commit('PKGLN_HORARIOS.p_guardar_horarios');
 
@@ -549,8 +571,12 @@ AS
             RAISE_APPLICATION_ERROR(-20001, 'El payload de entrada no puede ser nulo.');
         END IF;
 
-        v_obj_in     := JSON_OBJECT_T.parse(p_json_entrada);
-        v_id_usuario := v_obj_in.get_number('id_usuario');
+        v_obj_in := JSON_OBJECT_T.parse(p_json_entrada);
+        IF v_obj_in.has('id_usuario') AND NOT v_obj_in.get('id_usuario').is_null THEN
+            v_id_usuario := v_obj_in.get_number('id_usuario');
+        ELSIF v_obj_in.has('id_profesional') AND NOT v_obj_in.get('id_profesional').is_null THEN
+            v_id_usuario := v_obj_in.get_number('id_profesional');
+        END IF;
 
         IF v_id_usuario IS NULL THEN
             RAISE_APPLICATION_ERROR(-20001, 'El identificador del profesional es obligatorio.');
@@ -607,8 +633,12 @@ AS
             RAISE_APPLICATION_ERROR(-20001, 'El payload de entrada JSON no puede ser nulo.');
         END IF;
 
-        v_obj_in     := JSON_OBJECT_T.parse(p_json_entrada);
-        v_id_usuario := v_obj_in.get_number('id_usuario');
+        v_obj_in := JSON_OBJECT_T.parse(p_json_entrada);
+        IF v_obj_in.has('id_usuario') AND NOT v_obj_in.get('id_usuario').is_null THEN
+            v_id_usuario := v_obj_in.get_number('id_usuario');
+        ELSIF v_obj_in.has('id_profesional') AND NOT v_obj_in.get('id_profesional').is_null THEN
+            v_id_usuario := v_obj_in.get_number('id_profesional');
+        END IF;
         v_str_inicio := v_obj_in.get_string('fecha_inicial');
         v_str_fin    := v_obj_in.get_string('fecha_final');
 
@@ -703,7 +733,7 @@ AS
         p_json_salida  OUT CLOB
     ) IS
     BEGIN
-        PKGCN_HORARIOS.pr_consultar_ausencias_json(
+        PKGCN_HORARIOS.p_consultar_ausencias_json(
             p_json      => p_json_entrada,
             p_resultado => p_json_salida
         );
@@ -824,6 +854,21 @@ AS
             p_fecha_final   => v_fecha_final
         );
 
+        DECLARE
+            v_json_sync_in  JSON_OBJECT_T := JSON_OBJECT_T();
+            v_json_sync_out CLOB;
+        BEGIN
+            v_json_sync_in.put('id_usuario', v_id_usuario);
+            v_json_sync_in.put('fecha_inicial', TO_CHAR(v_fecha_inicial, 'YYYY-MM-DD'));
+            IF v_fecha_final IS NOT NULL THEN
+                v_json_sync_in.put('fecha_final', TO_CHAR(v_fecha_final, 'YYYY-MM-DD'));
+            END IF;
+            p_sincornizar_agenda(
+                p_json_entrada => v_json_sync_in.to_clob(),
+                p_json_salida  => v_json_sync_out
+            );
+        END;
+
         p_do_commit('PKGLN_HORARIOS.p_eliminar_horarios_vigencia');
 
         v_resp_obj := JSON_OBJECT_T();
@@ -923,6 +968,17 @@ AS
             );
         END IF;
 
+        DECLARE
+            v_json_sync_in  JSON_OBJECT_T := JSON_OBJECT_T();
+            v_json_sync_out CLOB;
+        BEGIN
+            v_json_sync_in.put('id_usuario', v_id_usuario);
+            p_sincornizar_agenda(
+                p_json_entrada => v_json_sync_in.to_clob(),
+                p_json_salida  => v_json_sync_out
+            );
+        END;
+
         -- 3. Confirmación atómica
         p_do_commit('PKGLN_HORARIOS.p_actualizar_trabaja_festivos');
 
@@ -960,18 +1016,549 @@ AS
             );
     END p_actualizar_trabaja_festivos;
 
+    -- 9. Sincronizar agenda y slots considerando citas ocupadas en tkr_citas (id_estado_cita IN (2,3))
+    PROCEDURE p_sincornizar_agenda (
+        p_json_entrada IN  CLOB,
+        p_json_salida  OUT CLOB
+    ) IS
+        v_obj_in                JSON_OBJECT_T;
+        v_id_usuario            NUMBER(12);
+        v_id_usuario_ejecutor   NUMBER(12);
+        v_codigo_traza          VARCHAR2(100);
+        v_ip_origen             VARCHAR2(50);
+        v_fecha_ini_str         VARCHAR2(30);
+        v_fecha_fin_str         VARCHAR2(30);
+        v_fecha_esp_str         VARCHAR2(30);
+        v_fecha_hoy             DATE;
+        v_fecha_inicial         DATE;
+        v_fecha_final           DATE;
+        v_dias_sincronizados    NUMBER := 0;
+        v_citas_ocupadas        NUMBER := 0;
+        v_resp_obj              JSON_OBJECT_T;
+
+        -- Variables de Telemetría (uti_manejo_trazas_pkg)
+        v_traza_activa          BOOLEAN := FALSE;
+        v_id_config_traza       NUMBER(12) := NULL;
+        v_id_traza_ejecucion    NUMBER(12) := NULL;
+        v_nivel_detalle_traza   VARCHAR2(30) := 'COMPLETO';
+        v_grabar_payloads_traza NUMBER(1) := 1;
+        v_fecha_inicio_traza    TIMESTAMP := SYSTIMESTAMP;
+
+        -- Variables de Orquestación y Lógica de Negocio
+        vro_parametro           tkr_parametros%ROWTYPE;
+        v_dias_parametro        NUMBER := 60;
+        v_f_ini                 DATE;
+        v_f_fin                 DATE;
+        v_f_cur                 DATE;
+        v_dia_semana            VARCHAR2(10);
+        v_trabaja_festivos      VARCHAR2(1) := 'N';
+        v_es_festivo            BOOLEAN := FALSE;
+        v_es_domingo            BOOLEAN := FALSE;
+        v_tiene_ausencia        BOOLEAN := FALSE;
+        v_tiene_por_dia         BOOLEAN := FALSE;
+        v_tiene_personaliz      BOOLEAN := FALSE;
+        v_tiene_base            BOOLEAN := FALSE;
+        v_jerarquia_aplica      VARCHAR2(20) := 'NINGUNO';
+        v_bitmap_ocupado        VARCHAR2(288);
+        v_bitmap_disponible     VARCHAR2(288);
+        v_slots_disponibles     NUMBER := 0;
+        v_duracion_min          NUMBER := 20;
+        v_min_ini               NUMBER;
+        v_min_fin               NUMBER;
+        v_idx_ini               NUMBER;
+        v_idx_fin               NUMBER;
+        v_actual                NUMBER;
+        v_slot_fin              NUMBER;
+        v_slot_ocupado          BOOLEAN;
+        v_json_tiempo           JSON_OBJECT_T;
+
+        -- Cursores y colecciones en memoria para citas y horarios
+        v_cur_citas             SYS_REFCURSOR;
+        v_cita_id               NUMBER;
+        v_cita_ini              DATE;
+        v_cita_fin              DATE;
+
+        TYPE t_cita_rec IS RECORD (
+            id                NUMBER,
+            fecha_inicio_cita DATE,
+            fecha_final_cita  DATE
+        );
+        TYPE t_citas_tab IS TABLE OF t_cita_rec INDEX BY BINARY_INTEGER;
+        vta_citas               t_citas_tab;
+        v_idx_c                 PLS_INTEGER := 0;
+
+        v_cur_horarios          SYS_REFCURSOR;
+        v_hor_id                NUMBER;
+        v_hor_id_usu            NUMBER;
+        v_hor_dia               VARCHAR2(10);
+        v_hor_desde             VARCHAR2(10);
+        v_hor_hasta             VARCHAR2(10);
+        v_hor_f_ini_str         VARCHAR2(20);
+        v_hor_f_fin_str         VARCHAR2(20);
+        v_hor_aseg              NUMBER;
+        v_hor_activo            NUMBER;
+
+        TYPE t_hor_rec IS RECORD (
+            id                    NUMBER,
+            dia_semana            VARCHAR2(10),
+            hora_desde            VARCHAR2(10),
+            hora_hasta            VARCHAR2(10),
+            fecha_inicial         DATE,
+            fecha_final           DATE,
+            id_tipo_aseguramiento NUMBER,
+            tipo_vigencia         VARCHAR2(20)
+        );
+        TYPE t_hor_tab IS TABLE OF t_hor_rec INDEX BY BINARY_INTEGER;
+        vta_horarios_dia        t_hor_tab;
+        v_idx_h                 PLS_INTEGER := 0;
+
+        FUNCTION f_hora_a_min (p_hora IN VARCHAR2) RETURN NUMBER IS
+            v_h NUMBER;
+            v_m NUMBER;
+        BEGIN
+            IF p_hora IS NULL OR INSTR(p_hora, ':') = 0 THEN
+                RETURN 0;
+            END IF;
+            v_h := TO_NUMBER(SUBSTR(p_hora, 1, INSTR(p_hora, ':') - 1));
+            v_m := TO_NUMBER(SUBSTR(p_hora, INSTR(p_hora, ':') + 1));
+            RETURN (v_h * 60) + v_m;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RETURN 0;
+        END f_hora_a_min;
+
+        FUNCTION f_dia_semana_cod (p_fecha IN DATE) RETURN VARCHAR2 IS
+            v_d VARCHAR2(20);
+        BEGIN
+            v_d := UPPER(SUBSTR(TRIM(TO_CHAR(p_fecha, 'DY', 'NLS_DATE_LANGUAGE=SPANISH')), 1, 2));
+            CASE v_d
+                WHEN 'LU' THEN RETURN 'LU';
+                WHEN 'MA' THEN RETURN 'MA';
+                WHEN 'MI' THEN RETURN 'MI';
+                WHEN 'JU' THEN RETURN 'JU';
+                WHEN 'VI' THEN RETURN 'VI';
+                WHEN 'SÁ' THEN RETURN 'SA';
+                WHEN 'SA' THEN RETURN 'SA';
+                WHEN 'DO' THEN RETURN 'DO';
+                ELSE RETURN 'LU';
+            END CASE;
+        END f_dia_semana_cod;
+    BEGIN
+        IF p_json_entrada IS NULL OR DBMS_LOB.GETLENGTH(p_json_entrada) = 0 THEN
+            v_resp_obj := JSON_OBJECT_T();
+            v_resp_obj.put('codigo', -20001);
+            v_resp_obj.put('error', -20001);
+            v_resp_obj.put('mensaje', 'El payload de entrada JSON no puede ser nulo.');
+            p_json_salida := v_resp_obj.to_clob();
+            RETURN;
+        END IF;
+
+        v_obj_in := JSON_OBJECT_T.parse(p_json_entrada);
+        IF v_obj_in.has('id_usuario') AND NOT v_obj_in.get('id_usuario').is_null THEN
+            v_id_usuario := v_obj_in.get_number('id_usuario');
+        ELSIF v_obj_in.has('id_profesional') AND NOT v_obj_in.get('id_profesional').is_null THEN
+            v_id_usuario := v_obj_in.get_number('id_profesional');
+        END IF;
+
+        IF v_id_usuario IS NULL THEN
+            v_resp_obj := JSON_OBJECT_T();
+            v_resp_obj.put('codigo', -20001);
+            v_resp_obj.put('error', -20001);
+            v_resp_obj.put('mensaje', 'El identificador del profesional (id_usuario) es obligatorio.');
+            p_json_salida := v_resp_obj.to_clob();
+            RETURN;
+        END IF;
+
+        IF v_obj_in.has('id_usuario_ejecutor') THEN
+            v_id_usuario_ejecutor := v_obj_in.get_number('id_usuario_ejecutor');
+        ELSE
+            v_id_usuario_ejecutor := v_id_usuario;
+        END IF;
+
+        IF v_obj_in.has('codigo_traza') THEN
+            v_codigo_traza := v_obj_in.get_string('codigo_traza');
+        ELSE
+            v_codigo_traza := RAWTOHEX(SYS_GUID());
+        END IF;
+
+        IF v_obj_in.has('ip_origen') THEN
+            v_ip_origen := v_obj_in.get_string('ip_origen');
+        ELSE
+            v_ip_origen := SYS_CONTEXT('USERENV', 'IP_ADDRESS');
+        END IF;
+
+        IF v_obj_in.has('fecha') AND NOT v_obj_in.get('fecha').is_null THEN
+            v_fecha_esp_str := TRIM(v_obj_in.get_string('fecha'));
+            IF v_fecha_esp_str IS NOT NULL AND v_fecha_esp_str NOT IN ('null', 'undefined') THEN
+                BEGIN
+                    v_fecha_inicial := TO_DATE(v_fecha_esp_str, 'YYYY-MM-DD');
+                    v_fecha_final   := v_fecha_inicial;
+                EXCEPTION
+                    WHEN OTHERS THEN
+                        v_resp_obj := JSON_OBJECT_T();
+                        v_resp_obj.put('codigo', -20005);
+                        v_resp_obj.put('error', -20005);
+                        v_resp_obj.put('mensaje', 'Formato de fecha inválido (' || v_fecha_esp_str || '). Se espera YYYY-MM-DD.');
+                        p_json_salida := v_resp_obj.to_clob();
+                        RETURN;
+                END;
+            END IF;
+        END IF;
+
+        IF v_obj_in.has('fecha_inicial') AND NOT v_obj_in.get('fecha_inicial').is_null THEN
+            v_fecha_ini_str := TRIM(v_obj_in.get_string('fecha_inicial'));
+            IF v_fecha_ini_str IS NOT NULL AND v_fecha_ini_str NOT IN ('null', 'undefined') THEN
+                BEGIN
+                    v_fecha_inicial := TO_DATE(v_fecha_ini_str, 'YYYY-MM-DD');
+                EXCEPTION
+                    WHEN OTHERS THEN
+                        v_resp_obj := JSON_OBJECT_T();
+                        v_resp_obj.put('codigo', -20005);
+                        v_resp_obj.put('error', -20005);
+                        v_resp_obj.put('mensaje', 'Formato de fecha_inicial inválido (' || v_fecha_ini_str || '). Se espera YYYY-MM-DD.');
+                        p_json_salida := v_resp_obj.to_clob();
+                        RETURN;
+                END;
+            END IF;
+        END IF;
+
+        IF v_obj_in.has('fecha_final') AND NOT v_obj_in.get('fecha_final').is_null THEN
+            v_fecha_fin_str := TRIM(v_obj_in.get_string('fecha_final'));
+            IF v_fecha_fin_str IS NOT NULL AND v_fecha_fin_str NOT IN ('null', 'undefined') THEN
+                BEGIN
+                    v_fecha_final := TO_DATE(v_fecha_fin_str, 'YYYY-MM-DD');
+                EXCEPTION
+                    WHEN OTHERS THEN
+                        v_resp_obj := JSON_OBJECT_T();
+                        v_resp_obj.put('codigo', -20005);
+                        v_resp_obj.put('error', -20005);
+                        v_resp_obj.put('mensaje', 'Formato de fecha_final inválido (' || v_fecha_fin_str || '). Se espera YYYY-MM-DD.');
+                        p_json_salida := v_resp_obj.to_clob();
+                        RETURN;
+                END;
+            END IF;
+        END IF;
+
+        -- PASO 1: Verificación obligatoria de trazabilidad
+        v_traza_activa := uti_manejo_trazas_pkg.f_debe_trazar(
+            p_nombre_paquete => 'PKGLN_HORARIOS',
+            p_nombre_metodo  => 'p_sincornizar_agenda',
+            p_id_usuario     => v_id_usuario_ejecutor,
+            p_id_config_out  => v_id_config_traza,
+            p_nivel_out      => v_nivel_detalle_traza,
+            p_grabar_pay_out => v_grabar_payloads_traza
+        );
+
+        -- PASO 2: Apertura de traza si está habilitada
+        IF v_traza_activa THEN
+            uti_manejo_trazas_pkg.p_iniciar_traza(
+                p_nombre_paquete   => 'PKGLN_HORARIOS',
+                p_nombre_metodo    => 'p_sincornizar_agenda',
+                p_id_config        => v_id_config_traza,
+                p_id_usuario       => v_id_usuario_ejecutor,
+                p_codigo_traza     => v_codigo_traza,
+                p_ip_origen        => v_ip_origen,
+                p_json_entrada     => p_json_entrada,
+                p_grabar_payload   => v_grabar_payloads_traza,
+                p_id_ejecucion_out => v_id_traza_ejecucion
+            );
+        END IF;
+
+        -- PASO 3: Orquestación de negocio para sincronización de slots y citas ocupadas (desde f_fecha_actual en adelante)
+        v_fecha_hoy := TRUNC(f_fecha_actual);
+        v_f_ini     := GREATEST(v_fecha_hoy, TRUNC(NVL(v_fecha_inicial, v_fecha_hoy)));
+
+        IF v_fecha_final IS NOT NULL THEN
+            v_f_fin := TRUNC(v_fecha_final);
+        ELSE
+            v_dias_parametro := 60;
+            IF pkgtkr_parametros_dao.f_existe(8, vro_parametro) THEN
+                BEGIN
+                    v_dias_parametro := NVL(TO_NUMBER(TRIM(vro_parametro.valor_parametro)), 60);
+                EXCEPTION
+                    WHEN OTHERS THEN
+                        v_dias_parametro := 60;
+                END;
+            END IF;
+            IF v_dias_parametro <= 0 THEN
+                v_dias_parametro := 60;
+            END IF;
+            v_f_fin := v_f_ini + v_dias_parametro;
+        END IF;
+
+        v_trabaja_festivos := pkgca_tkr_usuarios.f_trabaja_festivos(v_id_usuario);
+
+        v_json_tiempo := JSON_OBJECT_T();
+        v_json_tiempo.put('id_usuario', v_id_usuario);
+        v_json_tiempo.put('id_tipo_aseguramiento', 1);
+        v_json_tiempo.put('modalidad', 'V');
+        v_duracion_min := NVL(pkgca_tkr_tiempos_atencion.f_obtener_duracion_cita(v_json_tiempo.to_clob()), 20);
+        IF v_duracion_min <= 0 THEN
+            v_duracion_min := 20;
+        END IF;
+
+        -- Cargar citas ocupadas (id_estado_cita IN (2,3)) en el rango mediante PKGCN_HORARIOS
+        v_cur_citas := PKGCN_HORARIOS.f_consultar_citas_ocupadas(
+            p_id_usuario    => v_id_usuario,
+            p_fecha_inicial => v_f_ini,
+            p_fecha_final   => v_f_fin
+        );
+        LOOP
+            FETCH v_cur_citas INTO v_cita_id, v_cita_ini, v_cita_fin;
+            EXIT WHEN v_cur_citas%NOTFOUND;
+            v_idx_c := v_idx_c + 1;
+            vta_citas(v_idx_c).id                := v_cita_id;
+            vta_citas(v_idx_c).fecha_inicio_cita := v_cita_ini;
+            vta_citas(v_idx_c).fecha_final_cita  := NVL(v_cita_fin, v_cita_ini + (v_duracion_min / 1440));
+        END LOOP;
+        CLOSE v_cur_citas;
+
+        v_f_cur := v_f_ini;
+        WHILE v_f_cur <= v_f_fin LOOP
+            v_bitmap_ocupado    := RPAD('0', 288, '0');
+            v_bitmap_disponible := RPAD('0', 288, '0');
+            v_slots_disponibles := 0;
+
+            -- 3.1 Marcar slots ocupados según citas entre fecha_inicio_cita y fecha_final_cita
+            FOR c IN 1 .. v_idx_c LOOP
+                IF vta_citas(c).fecha_inicio_cita <= (v_f_cur + 1 - (1 / 86400))
+                   AND vta_citas(c).fecha_final_cita >= v_f_cur THEN
+                    v_citas_ocupadas := v_citas_ocupadas + 1;
+
+                    IF TRUNC(vta_citas(c).fecha_inicio_cita) < v_f_cur THEN
+                        v_min_ini := 0;
+                    ELSE
+                        v_min_ini := TO_NUMBER(TO_CHAR(vta_citas(c).fecha_inicio_cita, 'HH24')) * 60
+                                   + TO_NUMBER(TO_CHAR(vta_citas(c).fecha_inicio_cita, 'MI'));
+                    END IF;
+
+                    IF TRUNC(vta_citas(c).fecha_final_cita) > v_f_cur THEN
+                        v_min_fin := 1440;
+                    ELSE
+                        v_min_fin := TO_NUMBER(TO_CHAR(vta_citas(c).fecha_final_cita, 'HH24')) * 60
+                                   + TO_NUMBER(TO_CHAR(vta_citas(c).fecha_final_cita, 'MI'));
+                    END IF;
+
+                    IF v_min_fin <= v_min_ini THEN
+                        v_min_fin := v_min_ini + v_duracion_min;
+                    END IF;
+
+                    v_idx_ini := GREATEST(1, LEAST(288, TRUNC(v_min_ini / 5) + 1));
+                    v_idx_fin := GREATEST(v_idx_ini, LEAST(288, TRUNC((v_min_fin + 4) / 5)));
+
+                    FOR b_idx IN v_idx_ini .. v_idx_fin LOOP
+                        v_bitmap_ocupado := SUBSTR(v_bitmap_ocupado, 1, b_idx - 1) || '1' || SUBSTR(v_bitmap_ocupado, b_idx + 1);
+                    END LOOP;
+                END IF;
+            END LOOP;
+
+            -- 3.2 Evaluar horarios vigentes de la fecha y generar slots libres
+            v_dia_semana       := f_dia_semana_cod(v_f_cur);
+            v_es_domingo       := (v_dia_semana = 'DO');
+            v_es_festivo       := pkgca_tkr_festivos.f_es_festivo(v_f_cur, 1);
+            v_tiene_ausencia   := pkgca_tkr_ausencias_profesional.f_existe_ausencia(v_id_usuario, v_f_cur, v_f_cur);
+            v_tiene_por_dia    := FALSE;
+            v_tiene_personaliz := FALSE;
+            v_tiene_base       := FALSE;
+            v_jerarquia_aplica := 'NINGUNO';
+            vta_horarios_dia.DELETE;
+            v_idx_h            := 0;
+
+            IF NOT v_tiene_ausencia THEN
+                v_cur_horarios := pkgca_tkr_horarios_profesional.f_consultar_vigentes_fecha(
+                    p_id_usuario => v_id_usuario,
+                    p_fecha      => v_f_cur
+                );
+                LOOP
+                    FETCH v_cur_horarios INTO v_hor_id, v_hor_id_usu, v_hor_dia, v_hor_desde, v_hor_hasta, v_hor_f_ini_str, v_hor_f_fin_str, v_hor_aseg, v_hor_activo;
+                    EXIT WHEN v_cur_horarios%NOTFOUND;
+
+                    IF UPPER(TRIM(v_hor_dia)) = v_dia_semana THEN
+                        v_idx_h := v_idx_h + 1;
+                        vta_horarios_dia(v_idx_h).id                    := v_hor_id;
+                        vta_horarios_dia(v_idx_h).dia_semana            := UPPER(TRIM(v_hor_dia));
+                        vta_horarios_dia(v_idx_h).hora_desde            := v_hor_desde;
+                        vta_horarios_dia(v_idx_h).hora_hasta            := v_hor_hasta;
+                        vta_horarios_dia(v_idx_h).fecha_inicial         := TO_DATE(v_hor_f_ini_str, 'YYYY-MM-DD');
+                        vta_horarios_dia(v_idx_h).id_tipo_aseguramiento := NVL(v_hor_aseg, 1);
+
+                        IF v_hor_f_fin_str IS NOT NULL THEN
+                            vta_horarios_dia(v_idx_h).fecha_final := TO_DATE(v_hor_f_fin_str, 'YYYY-MM-DD');
+                            IF TRUNC(vta_horarios_dia(v_idx_h).fecha_inicial) = TRUNC(vta_horarios_dia(v_idx_h).fecha_final) THEN
+                                vta_horarios_dia(v_idx_h).tipo_vigencia := 'POR_DIA';
+                                v_tiene_por_dia := TRUE;
+                            ELSE
+                                vta_horarios_dia(v_idx_h).tipo_vigencia := 'PERSONALIZADO';
+                                v_tiene_personaliz := TRUE;
+                            END IF;
+                        ELSE
+                            vta_horarios_dia(v_idx_h).fecha_final   := NULL;
+                            vta_horarios_dia(v_idx_h).tipo_vigencia := 'BASE';
+                            v_tiene_base := TRUE;
+                        END IF;
+                    END IF;
+                END LOOP;
+                CLOSE v_cur_horarios;
+
+                IF v_tiene_por_dia THEN
+                    v_jerarquia_aplica := 'POR_DIA';
+                ELSIF NOT ((v_es_domingo OR v_es_festivo) AND v_trabaja_festivos = 'N') THEN
+                    IF v_tiene_personaliz THEN
+                        v_jerarquia_aplica := 'PERSONALIZADO';
+                    ELSIF v_tiene_base THEN
+                        v_jerarquia_aplica := 'BASE';
+                    END IF;
+                END IF;
+
+                IF v_jerarquia_aplica <> 'NINGUNO' THEN
+                    FOR h IN 1 .. v_idx_h LOOP
+                        IF vta_horarios_dia(h).tipo_vigencia = v_jerarquia_aplica THEN
+                            v_min_ini := f_hora_a_min(vta_horarios_dia(h).hora_desde);
+                            v_min_fin := f_hora_a_min(vta_horarios_dia(h).hora_hasta);
+                            v_actual  := v_min_ini;
+
+                            WHILE (v_actual + v_duracion_min) <= v_min_fin LOOP
+                                v_slot_fin := v_actual + v_duracion_min;
+                                v_idx_ini  := GREATEST(1, LEAST(288, TRUNC(v_actual / 5) + 1));
+                                v_idx_fin  := GREATEST(v_idx_ini, LEAST(288, TRUNC(v_slot_fin / 5)));
+
+                                v_slot_ocupado := FALSE;
+                                FOR b_idx IN v_idx_ini .. v_idx_fin LOOP
+                                    IF SUBSTR(v_bitmap_ocupado, b_idx, 1) = '1' THEN
+                                        v_slot_ocupado := TRUE;
+                                        EXIT;
+                                    END IF;
+                                END LOOP;
+
+                                IF NOT v_slot_ocupado THEN
+                                    FOR b_idx IN v_idx_ini .. v_idx_fin LOOP
+                                        v_bitmap_disponible := SUBSTR(v_bitmap_disponible, 1, b_idx - 1) || '1' || SUBSTR(v_bitmap_disponible, b_idx + 1);
+                                    END LOOP;
+                                    v_slots_disponibles := v_slots_disponibles + 1;
+                                END IF;
+
+                                v_actual := v_slot_fin;
+                            END LOOP;
+                        END IF;
+                    END LOOP;
+                END IF;
+            END IF;
+
+            -- 3.3 Invocar método DML de única instrucción en PKGCN_HORARIOS
+            PKGCN_HORARIOS.p_sincronizar_agenda_slots(
+                p_id_usuario            => v_id_usuario,
+                p_fecha                 => v_f_cur,
+                p_id_convenio           => NULL,
+                p_id_tipo_aseguramiento => 1,
+                p_modalidad             => 'V',
+                p_bitmap_disponible     => v_bitmap_disponible,
+                p_bitmap_ocupado        => v_bitmap_ocupado,
+                p_slots_disponibles     => v_slots_disponibles
+            );
+
+            v_dias_sincronizados := v_dias_sincronizados + 1;
+            v_f_cur              := v_f_cur + 1;
+        END LOOP;
+
+        -- PASO 4: Confirmación controlada de transacción
+        p_do_commit('PKGLN_HORARIOS.p_sincornizar_agenda');
+
+        v_resp_obj := JSON_OBJECT_T();
+        v_resp_obj.put('codigo', 0);
+        v_resp_obj.put('mensaje', 'Agenda y slots sincronizados exitosamente.');
+        v_resp_obj.put('id_usuario', v_id_usuario);
+        v_resp_obj.put('dias_sincronizados', v_dias_sincronizados);
+        v_resp_obj.put('citas_ocupadas', v_citas_ocupadas);
+        p_json_salida := v_resp_obj.to_clob();
+
+        -- PASO 5: Cierre exitoso de la traza
+        IF v_traza_activa AND v_id_traza_ejecucion IS NOT NULL THEN
+            uti_manejo_trazas_pkg.p_finalizar_traza(
+                p_id_ejecucion   => v_id_traza_ejecucion,
+                p_fecha_inicio   => v_fecha_inicio_traza,
+                p_json_salida    => p_json_salida,
+                p_grabar_payload => v_grabar_payloads_traza
+            );
+        END IF;
+
+    EXCEPTION
+        WHEN OTHERS THEN
+            ROLLBACK;
+
+            IF v_traza_activa AND v_id_traza_ejecucion IS NOT NULL THEN
+                uti_manejo_trazas_pkg.p_finalizar_traza_error(
+                    p_id_ejecucion  => v_id_traza_ejecucion,
+                    p_fecha_inicio  => v_fecha_inicio_traza,
+                    p_codigo_error  => SQLCODE,
+                    p_mensaje_error => SQLERRM
+                );
+            END IF;
+
+            vro_error.tipo            := 'E';
+            vro_error.nombre_programa := 'PKGLN_HORARIOS';
+            vro_error.nombre_metodo   := 'p_sincornizar_agenda';
+            vro_error.parametros      := p_json_entrada;
+            vro_error.codigo_error    := TO_CHAR(SQLCODE);
+            vro_error.texto_error     := DBMS_UTILITY.FORMAT_ERROR_BACKTRACE;
+            vro_error.mensaje_error   := SUBSTR(SQLERRM, 1, 4000);
+
+            uti_ge_excepciones_pkg.p_grabar_log(vro_error);
+
+            v_resp_obj := JSON_OBJECT_T();
+            v_resp_obj.put('codigo', -20000);
+            v_resp_obj.put('error', -20000);
+            v_resp_obj.put(
+                'mensaje',
+                'Se presento un error comunicarse con soporte. Número error: '
+                || vro_error.id
+            );
+            v_resp_obj.put('id_usuario', v_id_usuario);
+            p_json_salida := v_resp_obj.to_clob();
+    END p_sincornizar_agenda;
+
+    PROCEDURE p_sincornizar_agenda (
+        p_id_profesional IN NUMBER,
+        p_fecha          IN DATE DEFAULT NULL
+    ) IS
+        v_json_in  JSON_OBJECT_T := JSON_OBJECT_T();
+        v_json_out CLOB;
+    BEGIN
+        v_json_in.put('id_profesional', p_id_profesional);
+        IF p_fecha IS NOT NULL THEN
+            v_json_in.put('fecha', TO_CHAR(TRUNC(p_fecha), 'YYYY-MM-DD'));
+        END IF;
+        p_sincornizar_agenda(
+            p_json_entrada => v_json_in.to_clob(),
+            p_json_salida  => v_json_out
+        );
+    END p_sincornizar_agenda;
+
+    PROCEDURE p_sincronizar_agenda (
+        p_json_entrada IN  CLOB,
+        p_json_salida  OUT CLOB
+    ) IS
+    BEGIN
+        p_sincornizar_agenda(
+            p_json_entrada => p_json_entrada,
+            p_json_salida  => p_json_salida
+        );
+    END p_sincronizar_agenda;
+
+    PROCEDURE p_sincronizar_agenda (
+        p_id_profesional IN NUMBER,
+        p_fecha          IN DATE DEFAULT NULL
+    ) IS
+    BEGIN
+        p_sincornizar_agenda(
+            p_id_profesional => p_id_profesional,
+            p_fecha          => p_fecha
+        );
+    END p_sincronizar_agenda;
+
     -- =========================================================================
     -- ALIAS DE COMPATIBILIDAD
     -- =========================================================================
-    PROCEDURE pr_registrar_ausencia (
-        p_json      IN  CLOB,
-        p_resultado OUT CLOB
-    ) IS
-    BEGIN
-        p_registrar_ausencia(p_json, p_resultado);
-    END pr_registrar_ausencia;
-
-    PROCEDURE pr_actualizar_ausencia (
+    PROCEDURE p_actualizar_ausencia (
         p_json      IN  CLOB,
         p_resultado OUT CLOB
     ) IS
@@ -1019,7 +1606,7 @@ AS
 
         PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_actualizar(vro_ausencia);
 
-        p_do_commit('PKGLN_HORARIOS.pr_actualizar_ausencia');
+        p_do_commit('PKGLN_HORARIOS.p_actualizar_ausencia');
 
         v_resp_obj := JSON_OBJECT_T();
         v_resp_obj.put('success', TRUE);
@@ -1034,7 +1621,7 @@ AS
             END IF;
             vro_error.tipo            := 'E';
             vro_error.nombre_programa := 'PKGLN_HORARIOS';
-            vro_error.nombre_metodo   := 'pr_actualizar_ausencia';
+            vro_error.nombre_metodo   := 'p_actualizar_ausencia';
             vro_error.parametros      := p_json;
             vro_error.codigo_error    := TO_CHAR(SQLCODE);
             vro_error.texto_error     := DBMS_UTILITY.FORMAT_ERROR_BACKTRACE;
@@ -1045,23 +1632,15 @@ AS
                 'Se presento un error comunicarse con soporte. Número error: '
                 || vro_error.id || ' - ' || SQLERRM
             );
-    END pr_actualizar_ausencia;
+    END p_actualizar_ausencia;
 
-    PROCEDURE pr_obtener_ausencias (
+    PROCEDURE p_obtener_ausencias (
         p_json      IN  CLOB,
         p_resultado OUT CLOB
     ) IS
     BEGIN
         p_consultar_ausencias(p_json, p_resultado);
-    END pr_obtener_ausencias;
-
-    PROCEDURE pr_eliminar_ausencia (
-        p_json      IN  CLOB,
-        p_resultado OUT CLOB
-    ) IS
-    BEGIN
-        p_eliminar_ausencia(p_json, p_resultado);
-    END pr_eliminar_ausencia;
+    END p_obtener_ausencias;
 
 END PKGLN_HORARIOS;
 /

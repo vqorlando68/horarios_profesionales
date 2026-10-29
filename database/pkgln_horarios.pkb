@@ -504,7 +504,7 @@ AS
             ELSIF v_fecha_fin_lote IS NOT NULL THEN
                 v_json_sync_in.put('fecha_final', TO_CHAR(v_fecha_fin_lote, 'YYYY-MM-DD'));
             END IF;
-            p_sincornizar_agenda(
+            p_sincronizar_agenda(
                 p_json_entrada => v_json_sync_in.to_clob(),
                 p_json_salida  => v_json_sync_out
             );
@@ -863,7 +863,7 @@ AS
             IF v_fecha_final IS NOT NULL THEN
                 v_json_sync_in.put('fecha_final', TO_CHAR(v_fecha_final, 'YYYY-MM-DD'));
             END IF;
-            p_sincornizar_agenda(
+            p_sincronizar_agenda(
                 p_json_entrada => v_json_sync_in.to_clob(),
                 p_json_salida  => v_json_sync_out
             );
@@ -973,7 +973,7 @@ AS
             v_json_sync_out CLOB;
         BEGIN
             v_json_sync_in.put('id_usuario', v_id_usuario);
-            p_sincornizar_agenda(
+            p_sincronizar_agenda(
                 p_json_entrada => v_json_sync_in.to_clob(),
                 p_json_salida  => v_json_sync_out
             );
@@ -1017,7 +1017,7 @@ AS
     END p_actualizar_trabaja_festivos;
 
     -- 9. Sincronizar agenda y slots considerando citas ocupadas en tkr_citas (id_estado_cita IN (2,3))
-    PROCEDURE p_sincornizar_agenda (
+    PROCEDURE p_sincronizar_agenda (
         p_json_entrada IN  CLOB,
         p_json_salida  OUT CLOB
     ) IS
@@ -1242,7 +1242,7 @@ AS
         -- PASO 1: Verificación obligatoria de trazabilidad
         v_traza_activa := uti_manejo_trazas_pkg.f_debe_trazar(
             p_nombre_paquete => 'PKGLN_HORARIOS',
-            p_nombre_metodo  => 'p_sincornizar_agenda',
+            p_nombre_metodo  => 'p_sincronizar_agenda',
             p_id_usuario     => v_id_usuario_ejecutor,
             p_id_config_out  => v_id_config_traza,
             p_nivel_out      => v_nivel_detalle_traza,
@@ -1253,7 +1253,7 @@ AS
         IF v_traza_activa THEN
             uti_manejo_trazas_pkg.p_iniciar_traza(
                 p_nombre_paquete   => 'PKGLN_HORARIOS',
-                p_nombre_metodo    => 'p_sincornizar_agenda',
+                p_nombre_metodo    => 'p_sincronizar_agenda',
                 p_id_config        => v_id_config_traza,
                 p_id_usuario       => v_id_usuario_ejecutor,
                 p_codigo_traza     => v_codigo_traza,
@@ -1461,7 +1461,7 @@ AS
         END LOOP;
 
         -- PASO 4: Confirmación controlada de transacción
-        p_do_commit('PKGLN_HORARIOS.p_sincornizar_agenda');
+        p_do_commit('PKGLN_HORARIOS.p_sincronizar_agenda');
 
         v_resp_obj := JSON_OBJECT_T();
         v_resp_obj.put('codigo', 0);
@@ -1496,7 +1496,7 @@ AS
 
             vro_error.tipo            := 'E';
             vro_error.nombre_programa := 'PKGLN_HORARIOS';
-            vro_error.nombre_metodo   := 'p_sincornizar_agenda';
+            vro_error.nombre_metodo   := 'p_sincronizar_agenda';
             vro_error.parametros      := p_json_entrada;
             vro_error.codigo_error    := TO_CHAR(SQLCODE);
             vro_error.texto_error     := DBMS_UTILITY.FORMAT_ERROR_BACKTRACE;
@@ -1514,9 +1514,9 @@ AS
             );
             v_resp_obj.put('id_usuario', v_id_usuario);
             p_json_salida := v_resp_obj.to_clob();
-    END p_sincornizar_agenda;
+    END p_sincronizar_agenda;
 
-    PROCEDURE p_sincornizar_agenda (
+    PROCEDURE p_sincronizar_agenda (
         p_id_profesional IN NUMBER,
         p_fecha          IN DATE DEFAULT NULL
     ) IS
@@ -1527,33 +1527,48 @@ AS
         IF p_fecha IS NOT NULL THEN
             v_json_in.put('fecha', TO_CHAR(TRUNC(p_fecha), 'YYYY-MM-DD'));
         END IF;
-        p_sincornizar_agenda(
+        p_sincronizar_agenda(
             p_json_entrada => v_json_in.to_clob(),
             p_json_salida  => v_json_out
         );
-    END p_sincornizar_agenda;
-
-    PROCEDURE p_sincronizar_agenda (
-        p_json_entrada IN  CLOB,
-        p_json_salida  OUT CLOB
-    ) IS
-    BEGIN
-        p_sincornizar_agenda(
-            p_json_entrada => p_json_entrada,
-            p_json_salida  => p_json_salida
-        );
     END p_sincronizar_agenda;
 
-    PROCEDURE p_sincronizar_agenda (
-        p_id_profesional IN NUMBER,
-        p_fecha          IN DATE DEFAULT NULL
-    ) IS
+    -- 10. Procesar cola de actualización de agenda (tkr_refrescar_agenda)
+    PROCEDURE p_actualizar_agenda IS
+        vta_tkr_refrescar_agenda   pkgtkr_refrescar_agenda_dao.t_tkr_refrescar_agenda;
+        v_json_entrada             CLOB;
+        v_json_salida              CLOB;
     BEGIN
-        p_sincornizar_agenda(
-            p_id_profesional => p_id_profesional,
-            p_fecha          => p_fecha
-        );
-    END p_sincronizar_agenda;
+        pkgtkr_refrescar_agenda_dao.p_consultar_registros (vta_tkr_refrescar_agenda);
+
+        IF vta_tkr_refrescar_agenda.COUNT > 0
+        THEN
+            FOR a IN vta_tkr_refrescar_agenda.FIRST .. vta_tkr_refrescar_agenda.LAST
+            LOOP
+                v_json_entrada :=
+                       '{
+                    "id_profesional": '
+                    || vta_tkr_refrescar_agenda (a).id_usuario
+                    || ',
+                    "fecha": "'
+                    || TO_CHAR (vta_tkr_refrescar_agenda (a).fecha, 'YYYY-MM-DD')
+                    || '"
+                }';
+
+                pkgln_horarios.p_sincronizar_agenda (v_json_entrada, v_json_salida);
+
+                IF JSON_VALUE (v_json_salida, '$.codigo') = 0
+                THEN
+                    pkgtkr_refrescar_agenda_dao.p_eliminar (vta_tkr_refrescar_agenda (a).id);
+                ELSE
+                    vta_tkr_refrescar_agenda (a).comentarios := DBMS_LOB.SUBSTR (v_json_salida, 32000, 1);
+                    pkgtkr_refrescar_agenda_dao.p_actualizar (vta_tkr_refrescar_agenda (a));
+                END IF;
+
+                COMMIT;
+            END LOOP;
+        END IF;
+    END p_actualizar_agenda;
 
     -- =========================================================================
     -- ALIAS DE COMPATIBILIDAD

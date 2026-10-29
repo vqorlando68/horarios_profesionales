@@ -81,7 +81,7 @@ Configura la disponibilidad semanal de atención de un profesional de salud, sop
 - **Paso 09 [Validación de Traslapes en Base de Datos]**: Si el horario con fecha final colisiona con turnos registrados previamente para ese profesional y convenio; Salida inmediata con código -20009 por conflicto de horarios en base de datos (`PKGCN_HORARIOS.f_existe_traslape_horario`)
 - **Paso 10 [Persistencia Relacional de Turnos]**: Desestructura el arreglo mediante extracción relacional e inserta los nuevos turnos en el sistema; `PKGCN_HORARIOS.p_guardar_horarios_profesional`
 - **Paso 11 [Generación de Ausencias por Festivo - Bifurcación]**: Si la fecha festiva no se encuentra previamente cubierta en el calendario del profesional; Inserta la ausencia automática de un día y vuelve al flujo principal (`PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar`)
-- **Paso 12 [Sincronización de Slots de Agenda]**: Sincroniza los slots disponibles y ocupados del horario frente a las citas en `tkr_citas` (`id_estado_cita IN (2, 3)`); `p_sincornizar_agenda`
+- **Paso 12 [Sincronización de Slots de Agenda]**: Sincroniza los slots disponibles y ocupados del horario frente a las citas en `tkr_citas` (`id_estado_cita IN (2, 3)`); `p_sincronizar_agenda`
 - **Paso 13 [Confirmación Transaccional Atómica]**: Confirma todos los cambios en la base de datos de manera atómica y controlada; `p_do_commit`
 - **Paso 14 [Control Forense de Excepciones]**: Ante cualquier error inesperado; Revierte la transacción, registra el volcado del fallo en la bitácora de errores (`uti_ge_excepciones_pkg.p_grabar_log`) y retorna error
 
@@ -97,7 +97,7 @@ Configura la disponibilidad semanal de atención de un profesional de salud, sop
 | 7 | `PKGCN_HORARIOS.p_guardar_horarios_profesional` | `pkgcn_` | Procedimiento | Insertar masivamente turnos usando extracción relacional JSON_TABLE | En flujo principal tras validar traslapes |
 | 8 | `pkgca_tkr_ausencias_profesional.f_existe_ausencia` | `pkgca_` | Función | Verificar si la fecha festiva ya está cubierta para no duplicar | Por cada festivo no laborable |
 | 9 | `PKGTKR_AUSENCIAS_PROFESIONAL_DAO.p_insertar` | `DAO` | Procedimiento | Persistir ausencia automática de un día por festivo no laborable | Bifurcación: Si festivo no cubierto (vuelve al flujo) |
-| 10 | `PKGLN_HORARIOS.p_sincornizar_agenda` | `pkgln_` | Procedimiento | Sincronizar slots y bitmaps cruzando horarios con citas en estados 2 y 3 | Tras guardar o actualizar horarios |
+| 10 | `PKGLN_HORARIOS.p_sincronizar_agenda` | `pkgln_` | Procedimiento | Sincronizar slots y bitmaps cruzando horarios con citas en estados 2 y 3 | Tras guardar o actualizar horarios |
 | 11 | `p_do_commit` | `Transaccional` | Procedimiento | Confirmar cambios de forma controlada | Flujo principal al completar operaciones |
 | 12 | `uti_ge_excepciones_pkg.p_grabar_log` | `uti_` | Procedimiento | Registrar volcado técnico de excepción en tkr_errores | Bloque WHEN OTHERS ante fallos |
 
@@ -424,7 +424,7 @@ Actualiza la configuración de trabajo en días festivos y domingos para un usua
 
 ---
 
-## Método: p_sincornizar_agenda
+## Método: p_sincronizar_agenda
 
 ### 1. Descripción en Lenguaje Natural
 Sincroniza los slots y bitmaps de disponibilidad horaria de un profesional en `tkr_disponibilidad_bitmap` al momento de grabar o actualizar un horario:
@@ -478,3 +478,26 @@ Sincroniza los slots y bitmaps de disponibilidad horaria de un profesional en `t
   "citas_ocupadas": 8
 }
 ```
+
+
+---
+
+## Método: p_actualizar_agenda
+
+### 1. Descripción en Lenguaje Natural
+Procesa en lote todos los registros pendientes de la cola `tkr_refrescar_agenda`:
+- Consulta todos los registros en `tkr_refrescar_agenda` mediante `pkgtkr_refrescar_agenda_dao.p_consultar_registros`.
+- Por cada registro construye el JSON con `id_profesional` y `fecha` (`YYYY-MM-DD`) e invoca `pkgln_horarios.p_sincronizar_agenda`.
+- Si `codigo = 0`, elimina el registro de la cola con `pkgtkr_refrescar_agenda_dao.p_eliminar`; en caso contrario almacena el detalle en `comentarios` y actualiza con `pkgtkr_refrescar_agenda_dao.p_actualizar`.
+
+### 2. Decisiones y Bifurcaciones Lógicas
+- **Decisión 1 [Existencia de Registros Pendientes]**: Si `vta_tkr_refrescar_agenda.COUNT > 0`; Recorre cada solicitud e invoca `pkgln_horarios.p_sincronizar_agenda`
+- **Decisión 2 [Resultado de Sincronización]**: Si `JSON_VALUE(v_json_salida, '$.codigo') = 0`; Elimina el registro procesado (`pkgtkr_refrescar_agenda_dao.p_eliminar`), de lo contrario guarda el resultado en `comentarios` (`pkgtkr_refrescar_agenda_dao.p_actualizar`)
+
+### 3. Mapa de Objetos Invocados y Llamados
+| Orden | Nombre Exacto del Objeto Invocado | Capa / Familia | Tipo | Propósito de la Invocación | Condición / Momento |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| 1 | `pkgtkr_refrescar_agenda_dao.p_consultar_registros` | `_DAO` | Procedimiento | Obtener registros pendientes por refrescar | Al inicio del proceso |
+| 2 | `pkgln_horarios.p_sincronizar_agenda` | `pkgln_` | Procedimiento | Sincronizar slots del profesional en la fecha | Por cada registro pendiente |
+| 3 | `pkgtkr_refrescar_agenda_dao.p_eliminar` | `_DAO` | Procedimiento | Eliminar registro procesado con éxito | Si codigo = 0 |
+| 4 | `pkgtkr_refrescar_agenda_dao.p_actualizar` | `_DAO` | Procedimiento | Registrar comentarios de error en la cola | Si codigo <> 0 |

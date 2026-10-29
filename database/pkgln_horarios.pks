@@ -149,7 +149,7 @@ AS
 
     /**
      * =========================================================================
-     * Objeto      : p_sincornizar_agenda
+     * Objeto      : p_sincronizar_agenda
      * Propósito   : Sincroniza los slots y bitmaps de disponibilidad del profesional
      *               (tkr_disponibilidad_bitmap) a partir de los horarios vigentes,
      *               marcando como ocupados los slots comprendidos entre
@@ -181,16 +181,6 @@ AS
      *   2026-10-29  | Orlando Valverde       | Creación de sincronización de slots con tkr_citas (estados 2,3).
      * =========================================================================
      */
-    PROCEDURE p_sincornizar_agenda (
-        p_json_entrada IN  CLOB,
-        p_json_salida  OUT CLOB
-    );
-
-    PROCEDURE p_sincornizar_agenda (
-        p_id_profesional IN NUMBER,
-        p_fecha          IN DATE DEFAULT NULL
-    );
-
     PROCEDURE p_sincronizar_agenda (
         p_json_entrada IN  CLOB,
         p_json_salida  OUT CLOB
@@ -200,6 +190,17 @@ AS
         p_id_profesional IN NUMBER,
         p_fecha          IN DATE DEFAULT NULL
     );
+
+    /**
+     * =========================================================================
+     * Objeto      : p_actualizar_agenda
+     * Propósito   : Procesa los registros pendientes en TKR_REFRESCAR_AGENDA,
+     *               invoca p_sincronizar_agenda para cada profesional y fecha,
+     *               y elimina el registro si fue exitoso o guarda el error en
+     *               comentarios.
+     * =========================================================================
+     */
+    PROCEDURE p_actualizar_agenda;
 
     -- =========================================================================
     -- ALIAS PARA COMPATIBILIDAD CONTRATOS PREVIOS (p_*)

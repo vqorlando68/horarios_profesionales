@@ -424,10 +424,14 @@ AS
             SELECT ct.id,
                    ct.fecha_inicio_cita,
                    ct.fecha_final_cita
-              FROM tkr_citas         ct,
-                   tkr_cita_usuarios cu
-             WHERE ct.id                 = cu.id_cita
-               AND cu.id_usuario_atiende = p_id_usuario
+              FROM tkr_citas ct
+             WHERE (   ct.id_profesional = p_id_usuario
+                    OR EXISTS (
+                           SELECT 1
+                             FROM tkr_cita_usuarios cu
+                            WHERE cu.id_cita            = ct.id
+                              AND cu.id_usuario_atiende = p_id_usuario
+                       ) )
                AND ct.id_estado_cita    IN (2, 3)
                AND ct.fecha_inicio_cita <= (TRUNC(p_fecha_final) + 1 - (1 / 86400))
                AND NVL(ct.fecha_final_cita, ct.fecha_inicio_cita) >= TRUNC(p_fecha_inicial);

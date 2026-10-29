@@ -29,10 +29,10 @@
 - **Información que modifica:** Elimina de `tkr_ausencias_profesional` los registros de festivos de dicha vigencia que no se solapen con otra vigencia activa.
 
 ## 8. `f_consultar_citas_ocupadas`
-- **Información que trae:** Consulta en una única instrucción `SELECT` las citas ocupadas de un profesional en `tkr_citas` y `tkr_cita_usuarios` (sintaxis tradicional) entre `fecha_inicio_cita` y `fecha_final_cita` con `id_estado_cita IN (2, 3)`, retornando un `SYS_REFCURSOR`.
+- **Información que trae:** Consulta en una única instrucción `SELECT` las citas ocupadas de un profesional en `tkr_citas` (filtrando por `ct.id_profesional = p_id_usuario` o existencia en `tkr_cita_usuarios.id_usuario_atiende = p_id_usuario`) entre `fecha_inicio_cita` y `fecha_final_cita` con `id_estado_cita IN (2, 3)`, retornando un `SYS_REFCURSOR`.
 - **Información que modifica:** Ninguna (solo lectura).
 
 ## 9. `p_sincronizar_agenda_slots`
-- **Información que trae:** Recibe por parámetro los vectores `p_bitmap_disponible`, `p_bitmap_ocupado` y `p_slots_disponibles` calculados por el orquestador `PKGLN_HORARIOS.p_sincornizar_agenda`.
+- **Información que trae:** Recibe por parámetro los vectores `p_bitmap_disponible`, `p_bitmap_ocupado` y `p_slots_disponibles` calculados por el orquestador `PKGLN_HORARIOS.p_sincronizar_agenda`.
 - **Información que modifica:** Ejecuta una única instrucción DML (`MERGE INTO tkr_disponibilidad_bitmap`) para actualizar o insertar los slots y bitmaps del profesional en la fecha indicada.
 
